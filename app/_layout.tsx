@@ -18,7 +18,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme() ?? 'dark';
+  const colorScheme = (useColorScheme() ?? 'dark') as keyof typeof NavigationThemes;
   const [queryClient] = React.useState(() => createQueryClient());
 
   return (

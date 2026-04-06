@@ -85,7 +85,7 @@ export function HomeScreen() {
         </View>
 
         <AppStatCard
-          detail={session.phoneNumber ?? 'google-oauth-mock@connectx.local'}
+          detail={session.email}
           label="Authenticated Session"
           value="91%"
         />

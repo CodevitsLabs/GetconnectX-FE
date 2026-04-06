@@ -1,17 +1,17 @@
 import { Redirect } from 'expo-router';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 
-import { useAuth } from '@features/auth';
+import { canAccessProtectedRoutes, getRouteForAuthPhase, useAuth } from '@features/auth';
 
 export default function TabLayout() {
-  const { isHydrated, session } = useAuth();
+  const { authPhase, isHydrated, session } = useAuth();
 
   if (!isHydrated) {
     return null;
   }
 
-  if (!session) {
-    return <Redirect href="/login" />;
+  if (!session || !canAccessProtectedRoutes(authPhase)) {
+    return <Redirect href={getRouteForAuthPhase(authPhase)} />;
   }
 
   return (

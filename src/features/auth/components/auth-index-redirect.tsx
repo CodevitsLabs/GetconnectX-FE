@@ -1,17 +1,14 @@
 import { Redirect } from 'expo-router';
 
 import { useAuth } from '../hooks/use-auth';
+import { getRouteForAuthPhase } from '../utils/auth-routing';
 
 export function AuthIndexRedirect() {
-  const { isHydrated, session } = useAuth();
+  const { authPhase, isHydrated } = useAuth();
 
   if (!isHydrated) {
     return null;
   }
 
-  if (session) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  return <Redirect href="/login" />;
+  return <Redirect href={getRouteForAuthPhase(authPhase)} />;
 }

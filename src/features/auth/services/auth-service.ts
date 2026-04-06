@@ -1,13 +1,40 @@
 import * as SecureStore from 'expo-secure-store';
 
-import type { AuthSession } from '../types/auth.types';
+import type {
+  AuthSession,
+  AuthUser,
+  EmailAlreadyVerifiedResponse,
+  LoginPlaceholderResponse,
+  OtpMessageResponse,
+  OtpRateLimitResponse,
+  RegisterPayload,
+  VerifyEmailErrorResponse,
+  VerifyEmailPayload,
+  VerifyEmailSuccessResponse,
+} from '../types/auth.types';
 
 const TOKEN_KEY = 'connectx.auth.token';
 const SESSION_KEY = 'connectx.auth.session';
+const MOCK_FCM_TOKEN = 'a1b2c3d4e5f6g7h8_mock_fcm_token';
+const MOCK_EMAIL_OTP = '671706';
+const OTP_LOCK_WINDOW_MS = 60 * 1000;
+const OTP_VALIDITY_MS = 10 * 60 * 1000;
+const AUTH_PHASES = new Set([
+  'signed_out',
+  'pending_email_verification',
+  'pending_whatsapp_verification',
+  'authenticated',
+]);
+const AUTH_METHODS = new Set(['email', 'google', 'apple', 'developer-bypass']);
 
 type PersistedAuthState = {
   session: AuthSession | null;
   token: string | null;
+};
+
+type SessionActionResult<TResponse> = {
+  response: TResponse;
+  session: AuthSession;
 };
 
 export async function getStoredToken() {
@@ -22,7 +49,14 @@ export async function getStoredSession() {
   }
 
   try {
-    return JSON.parse(rawSession) as AuthSession;
+    const parsedSession = JSON.parse(rawSession) as unknown;
+
+    if (!isStoredSessionShape(parsedSession)) {
+      await SecureStore.deleteItemAsync(SESSION_KEY);
+      return null;
+    }
+
+    return parsedSession;
   } catch {
     await SecureStore.deleteItemAsync(SESSION_KEY);
     return null;
@@ -42,6 +76,10 @@ export async function persistAuthSession(session: AuthSession, token: string) {
   ]);
 }
 
+export async function replaceStoredSession(session: AuthSession) {
+  await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+}
+
 export async function clearPersistedAuth() {
   await Promise.all([
     SecureStore.deleteItemAsync(TOKEN_KEY),
@@ -49,25 +87,273 @@ export async function clearPersistedAuth() {
   ]);
 }
 
-export async function signInWithMockGoogle() {
-  const session: AuthSession = {
-    displayName: 'Alya Hartono',
-    method: 'google',
+function buildDisplayNameFromEmail(email: string) {
+  const localPart = email.split('@')[0] ?? 'connectx member';
+
+  return localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function isStoredSessionShape(value: unknown): value is AuthSession {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<AuthSession>;
+
+  return (
+    typeof candidate.displayName === 'string' &&
+    typeof candidate.email === 'string' &&
+    typeof candidate.authPhase === 'string' &&
+    AUTH_PHASES.has(candidate.authPhase) &&
+    typeof candidate.method === 'string' &&
+    AUTH_METHODS.has(candidate.method)
+  );
+}
+
+function createPendingEmailUser(email: string): AuthUser {
+  return {
+    id: `mock-user-${Date.now()}`,
+    entity_type: null,
+    email,
+    email_verified_at: null,
+    whatsapp_number: null,
+    whatsapp_verified_at: null,
+    registration_step: 2,
+    is_active: false,
   };
-  const token = `mock-google-token-${Date.now()}`;
+}
+
+function createPendingEmailSession(email: string): AuthSession {
+  return {
+    authPhase: 'pending_email_verification',
+    displayName: buildDisplayNameFromEmail(email) || 'ConnectX Member',
+    email,
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: null,
+    emailOtpResendAvailableAt: null,
+    method: 'email',
+    user: createPendingEmailUser(email),
+  };
+}
+
+function createOtpSuccessMessage(email: string) {
+  return `Kode Verifikasi OTP telah dikirim ke ${email}. Kode ini berlaku selama 10 menit.`;
+}
+
+async function requireStoredAuthState() {
+  const [token, session] = await Promise.all([getStoredToken(), getStoredSession()]);
+
+  if (!token || !session) {
+    throw new Error('No auth state is available for this flow.');
+  }
+
+  return { token, session };
+}
+
+function withFreshOtpSession(session: AuthSession) {
+  const now = Date.now();
+
+  return {
+    ...session,
+    emailOtpCode: MOCK_EMAIL_OTP,
+    emailOtpExpiresAt: new Date(now + OTP_VALIDITY_MS).toISOString(),
+    emailOtpLastSentAt: new Date(now).toISOString(),
+    emailOtpResendAvailableAt: new Date(now + OTP_LOCK_WINDOW_MS).toISOString(),
+  } satisfies AuthSession;
+}
+
+async function persistSessionResult<TResponse>(
+  session: AuthSession,
+  response: TResponse
+): Promise<SessionActionResult<TResponse>> {
+  await replaceStoredSession(session);
+
+  return {
+    response,
+    session,
+  };
+}
+
+export function getMockRegisterPayloadDefaults() {
+  return {
+    entity_type: null,
+    fcm_token: MOCK_FCM_TOKEN,
+  } as const;
+}
+
+export async function submitMockLoginPlaceholder(): Promise<LoginPlaceholderResponse> {
+  return {
+    message: 'Login API is not connected yet. Use Register or the developer bypass for now.',
+    status: 'info',
+  };
+}
+
+export async function registerWithMock(
+  payload: RegisterPayload
+): Promise<SessionActionResult<OtpMessageResponse>> {
+  const session = createPendingEmailSession(payload.email.trim().toLowerCase());
+  const token = `mock-register-token-${Date.now()}`;
 
   await persistAuthSession(session, token);
 
-  return session;
+  return {
+    response: {
+      data: [],
+      message: 'Account created. Continue with email verification.',
+      next_step: 'NEED_EMAIL_VERIFICATION',
+      status: 'success',
+    },
+    session,
+  };
 }
 
-export async function signInWithMockPhone(phoneNumber: string) {
-  const session: AuthSession = {
-    displayName: 'Phone Member',
-    method: 'phone',
-    phoneNumber,
+export async function sendEmailOtpWithMock(): Promise<
+  SessionActionResult<OtpMessageResponse | OtpRateLimitResponse>
+> {
+  const { session } = await requireStoredAuthState();
+  const resendAvailableAt = session.emailOtpResendAvailableAt
+    ? new Date(session.emailOtpResendAvailableAt).getTime()
+    : 0;
+
+  if (resendAvailableAt > Date.now()) {
+    return {
+      response: {
+        message: 'Terlalu banyak permintaan OTP. Coba lagi dalam 8 menit.',
+      },
+      session,
+    };
+  }
+
+  const nextSession = withFreshOtpSession(session);
+
+  return persistSessionResult(nextSession, {
+    data: [],
+    message: createOtpSuccessMessage(nextSession.email),
+    next_step: 'NEED_EMAIL_VERIFICATION',
+    status: 'success',
+  });
+}
+
+export async function resendEmailOtpWithMock(): Promise<
+  SessionActionResult<OtpMessageResponse | OtpRateLimitResponse | EmailAlreadyVerifiedResponse>
+> {
+  const { session } = await requireStoredAuthState();
+
+  if (session.user?.email_verified_at) {
+    return {
+      response: {
+        code: 'EMAIL_ALREADY_VERIFIED',
+        message: 'Email telah terverifikasi sebelumnya.',
+        status: 'error',
+      },
+      session,
+    };
+  }
+
+  const resendAvailableAt = session.emailOtpResendAvailableAt
+    ? new Date(session.emailOtpResendAvailableAt).getTime()
+    : 0;
+
+  if (resendAvailableAt > Date.now()) {
+    return {
+      response: {
+        message: 'Upsss... Terlalu banyak permintaan OTP. Coba lagi dalam 8 menit.',
+      },
+      session,
+    };
+  }
+
+  const nextSession = withFreshOtpSession(session);
+
+  return persistSessionResult(nextSession, {
+    data: [],
+    message: createOtpSuccessMessage(nextSession.email),
+    next_step: 'NEED_EMAIL_VERIFICATION',
+    status: 'success',
+  });
+}
+
+export async function verifyEmailOtpWithMock(
+  payload: VerifyEmailPayload
+): Promise<SessionActionResult<VerifyEmailSuccessResponse | VerifyEmailErrorResponse>> {
+  const { session } = await requireStoredAuthState();
+  const otpExpiresAt = session.emailOtpExpiresAt ? new Date(session.emailOtpExpiresAt).getTime() : 0;
+  const normalizedOtp = payload.otp_code.trim();
+
+  if (
+    !session.emailOtpCode ||
+    !otpExpiresAt ||
+    otpExpiresAt < Date.now() ||
+    normalizedOtp !== session.emailOtpCode
+  ) {
+    return {
+      response: {
+        errors: {
+          otp_code: ['Upsss... OTP tidak ditemukan atau sudah kadaluarsa. Silahkan minta OTP baru.'],
+        },
+        message: 'Terjadi kesalahan pada isian form. Silakan periksa kembali kolom yang diisi.',
+      },
+      session,
+    };
+  }
+
+  const verifiedAt = new Date().toISOString();
+  const nextSession: AuthSession = {
+    ...session,
+    authPhase: 'pending_whatsapp_verification',
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: session.emailOtpLastSentAt,
+    emailOtpResendAvailableAt: session.emailOtpResendAvailableAt,
+    user: session.user
+      ? {
+          ...session.user,
+          email_verified_at: verifiedAt,
+          is_active: false,
+          registration_step: 3,
+        }
+      : null,
   };
-  const token = `mock-phone-token-${Date.now()}`;
+
+  return persistSessionResult(nextSession, {
+    data: {
+      user: nextSession.user as AuthUser,
+    },
+    message: 'Email berhasil diverifikasi.',
+    next_step: 'NEED_WHATSAPP_VERIFICATION',
+    status: 'success',
+  });
+}
+
+export async function enterWithDevBypassSession() {
+  const verifiedAt = new Date().toISOString();
+  const session: AuthSession = {
+    authPhase: 'authenticated',
+    displayName: 'Dev Explorer',
+    email: 'dev-bypass@connectx.local',
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: null,
+    emailOtpResendAvailableAt: null,
+    isDevelopmentBypass: true,
+    method: 'developer-bypass',
+    user: {
+      id: 'dev-bypass-user',
+      entity_type: null,
+      email: 'dev-bypass@connectx.local',
+      email_verified_at: verifiedAt,
+      whatsapp_number: '+62 000 0000 0000',
+      whatsapp_verified_at: verifiedAt,
+      registration_step: 4,
+      is_active: true,
+    },
+  };
+  const token = 'dev-bypass-token';
 
   await persistAuthSession(session, token);
 

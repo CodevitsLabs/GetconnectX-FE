@@ -5,6 +5,21 @@ import { AppButton, AppCard, AppListItem, AppPill, AppStatCard, AppText } from '
 
 import { useAuth } from '@features/auth';
 
+function getMethodLabel(method: string) {
+  switch (method) {
+    case 'email':
+      return 'Email';
+    case 'apple':
+      return 'Apple';
+    case 'google':
+      return 'Google';
+    case 'developer-bypass':
+      return 'Developer Bypass';
+    default:
+      return 'Auth';
+  }
+}
+
 export function ProfileScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
@@ -47,17 +62,23 @@ export function ProfileScreen() {
         <AppCard className="gap-3">
           <AppText variant="subtitle">Access details</AppText>
           <AppListItem
-            description={session.method === 'google' ? 'Primary provider' : 'Recovery-friendly sign-in'}
+            description={
+              session.isDevelopmentBypass
+                ? 'Synthetic session used for local development work.'
+                : session.method === 'email'
+                  ? 'Primary email and password path.'
+                  : 'Connected sign-in method.'
+            }
             leading={<AppText variant="bodyStrong">ID</AppText>}
             title="Login method"
-            value={session.method === 'google' ? 'Google' : 'Phone'}
+            value={getMethodLabel(session.method)}
           />
           <AppListItem
             description="Active identifier used for this demo session."
             leading={<AppText variant="bodyStrong">#</AppText>}
-            meta="Verified"
+            meta={session.user?.email_verified_at ? 'Verified' : 'Pending'}
             title="Sign-in ID"
-            value={session.phoneNumber ?? 'OAuth'}
+            value={session.email}
           />
         </AppCard>
 

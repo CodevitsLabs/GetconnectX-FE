@@ -7,6 +7,7 @@ import { AppText } from './app-text';
 
 export type AppInputProps = TextInputProps & {
   className?: string;
+  error?: string;
   hint?: string;
   label?: string;
   shellClassName?: string;
@@ -15,6 +16,7 @@ export type AppInputProps = TextInputProps & {
 
 export function AppInput({
   className,
+  error,
   hint,
   label,
   placeholderTextColor = '#667085',
@@ -34,7 +36,11 @@ export function AppInput({
       <TextInput
         className={cn(
           'min-h-14 rounded-[16px] border px-4 font-body text-[15px] text-text',
-          isFocused ? 'border-accent bg-background' : 'border-border bg-background',
+          error
+            ? 'border-danger bg-background'
+            : isFocused
+              ? 'border-accent bg-background'
+              : 'border-border bg-background',
           className
         )}
         onBlur={(event) => {
@@ -48,7 +54,11 @@ export function AppInput({
         placeholderTextColor={placeholderTextColor}
         {...props}
       />
-      {hint ? (
+      {error ? (
+        <AppText className="px-1" selectable tone="danger" variant="code">
+          {error}
+        </AppText>
+      ) : hint ? (
         <AppText className="px-1" tone="muted" variant="code">
           {hint}
         </AppText>

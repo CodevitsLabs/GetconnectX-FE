@@ -4,29 +4,49 @@ import { configureApiClient } from '@shared/services/api';
 
 import {
   clearPersistedAuth,
+  enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
-  signInWithMockGoogle,
-  signInWithMockPhone,
+  registerWithMock,
+  resendEmailOtpWithMock,
+  sendEmailOtpWithMock,
+  submitMockLoginPlaceholder,
+  verifyEmailOtpWithMock,
 } from '../services/auth-service';
-import type { AuthSession } from '../types/auth.types';
+import { isAuthBypassEnabled } from '../config/auth-config';
+import type {
+  AuthPhase,
+  AuthSession,
+  LoginPlaceholderResponse,
+  RegisterPayload,
+  VerifyEmailPayload,
+} from '../types/auth.types';
 
 type AuthContextValue = {
+  authPhase: AuthPhase;
   isHydrated: boolean;
+  isAuthBypassEnabled: boolean;
   session: AuthSession | null;
-  signInWithGoogle: () => Promise<void>;
-  signInWithPhone: (phoneNumber: string) => Promise<void>;
+  enterWithDevBypass: () => Promise<void>;
+  register: (payload: RegisterPayload) => ReturnType<typeof registerWithMock>;
+  resendEmailOtp: () => ReturnType<typeof resendEmailOtpWithMock>;
+  sendEmailOtp: () => ReturnType<typeof sendEmailOtpWithMock>;
+  submitEmailLogin: () => Promise<LoginPlaceholderResponse>;
   signOut: () => Promise<void>;
+  verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpWithMock>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [isHydrated, setIsHydrated] = React.useState(false);
+  const [authPhase, setAuthPhase] = React.useState<AuthPhase>('signed_out');
   const [session, setSession] = React.useState<AuthSession | null>(null);
+  const authBypassEnabled = React.useMemo(() => isAuthBypassEnabled(), []);
 
   const signOut = React.useCallback(async () => {
     await clearPersistedAuth();
+    setAuthPhase('signed_out');
     setSession(null);
   }, []);
 
@@ -42,9 +62,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
       if (token && storedSession) {
         setSession(storedSession);
+        setAuthPhase(storedSession.authPhase);
       } else {
         await clearPersistedAuth();
         setSession(null);
+        setAuthPhase('signed_out');
       }
 
       setIsHydrated(true);
@@ -66,25 +88,74 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     });
   }, [signOut]);
 
-  const signInWithGoogle = React.useCallback(async () => {
-    const nextSession = await signInWithMockGoogle();
-    setSession(nextSession);
+  const submitEmailLogin = React.useCallback(async () => {
+    return submitMockLoginPlaceholder();
   }, []);
 
-  const signInWithPhone = React.useCallback(async (phoneNumber: string) => {
-    const nextSession = await signInWithMockPhone(phoneNumber);
+  const register = React.useCallback(
+    async (payload: RegisterPayload) => {
+      const result = await registerWithMock(payload);
+      setSession(result.session);
+      setAuthPhase(result.session.authPhase);
+      return result;
+    },
+    []
+  );
+
+  const sendEmailOtp = React.useCallback(async () => {
+    const result = await sendEmailOtpWithMock();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const resendEmailOtp = React.useCallback(async () => {
+    const result = await resendEmailOtpWithMock();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const verifyEmailOtp = React.useCallback(async (payload: VerifyEmailPayload) => {
+    const result = await verifyEmailOtpWithMock(payload);
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const enterWithDevBypass = React.useCallback(async () => {
+    const nextSession = await enterWithDevBypassSession();
     setSession(nextSession);
+    setAuthPhase(nextSession.authPhase);
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
+      authPhase,
+      enterWithDevBypass,
       isHydrated,
+      isAuthBypassEnabled: authBypassEnabled,
+      register,
+      resendEmailOtp,
+      sendEmailOtp,
       session,
-      signInWithGoogle,
-      signInWithPhone,
+      submitEmailLogin,
       signOut,
+      verifyEmailOtp,
     }),
-    [isHydrated, session, signInWithGoogle, signInWithPhone, signOut]
+    [
+      authPhase,
+      authBypassEnabled,
+      enterWithDevBypass,
+      isHydrated,
+      register,
+      resendEmailOtp,
+      sendEmailOtp,
+      session,
+      submitEmailLogin,
+      signOut,
+      verifyEmailOtp,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
