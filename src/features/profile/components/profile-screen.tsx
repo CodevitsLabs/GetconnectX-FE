@@ -1,7 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 
-import { AppButton, AppCard, AppPill, AppText } from '@shared/components';
+import { AppButton, AppCard, AppListItem, AppPill, AppStatCard, AppText } from '@shared/components';
 
 import { useAuth } from '@features/auth';
 
@@ -15,43 +15,69 @@ export function ProfileScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Profile' }} />
+      <Stack.Screen options={{ title: 'Account' }} />
       <ScrollView
         className="flex-1 bg-canvas"
         contentContainerClassName="gap-6 px-5 pt-4 pb-24"
         contentInsetAdjustmentBehavior="automatic">
-        <AppCard className="gap-5">
-          <View className="gap-3">
-            <AppPill className="self-start" label="Account" tone="accent" />
-            <AppText variant="display">{session.displayName}</AppText>
+        <View className="gap-3">
+          <AppPill className="self-start" label="Account" tone="accent" />
+          <AppText variant="hero">{session.displayName}</AppText>
+          <AppText tone="muted">
+            Keep identity, access method, and session controls clear and low-friction.
+          </AppText>
+        </View>
+
+        <View className="flex-row gap-3">
+          <AppStatCard
+            className="flex-1"
+            detail="Healthy"
+            label="Security Status"
+            tone="success"
+            value="Secure"
+          />
+          <AppStatCard
+            className="flex-1"
+            detail="Active"
+            label="Current Session"
+            value="Live"
+          />
+        </View>
+
+        <AppCard className="gap-3">
+          <AppText variant="subtitle">Access details</AppText>
+          <AppListItem
+            description={session.method === 'google' ? 'Primary provider' : 'Recovery-friendly sign-in'}
+            leading={<AppText variant="bodyStrong">ID</AppText>}
+            title="Login method"
+            value={session.method === 'google' ? 'Google' : 'Phone'}
+          />
+          <AppListItem
+            description="Active identifier used for this demo session."
+            leading={<AppText variant="bodyStrong">#</AppText>}
+            meta="Verified"
+            title="Sign-in ID"
+            value={session.phoneNumber ?? 'OAuth'}
+          />
+        </AppCard>
+
+        <AppCard tone="muted" className="gap-4">
+          <View className="gap-1">
+            <AppText variant="subtitle">Session control</AppText>
             <AppText tone="muted">
-              A compact profile tab for session details, settings, and eventual account management.
+              Keep destructive actions visually quieter until the user truly needs them.
             </AppText>
           </View>
 
-          <AppCard tone="muted" className="gap-3">
-            <AppText tone="accent" variant="label">
-              Login Method
-            </AppText>
-            <AppText variant="subtitle">
-              {session.method === 'google' ? 'Google' : 'Phone number'}
-            </AppText>
-            <AppText tone="muted" variant="code">
-              {session.phoneNumber ?? 'google-oauth-mock@connectx.local'}
-            </AppText>
-          </AppCard>
-
-          <View className="gap-3">
-            <AppButton
-              detail="Return to the mock authentication screen"
-              label="Sign Out"
-              onPress={async () => {
-                await signOut();
-                router.replace('/login');
-              }}
-              variant="secondary"
-            />
-          </View>
+          <AppButton
+            detail="Return to the secure entry screen"
+            label="Sign Out"
+            onPress={async () => {
+              await signOut();
+              router.replace('/login');
+            }}
+            variant="secondary"
+          />
         </AppCard>
       </ScrollView>
     </>

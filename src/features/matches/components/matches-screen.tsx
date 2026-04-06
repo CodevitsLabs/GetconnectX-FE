@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 
-import { AppCard, AppPill, AppText } from '@shared/components';
+import { AppCard, AppPill, AppStatCard, AppText } from '@shared/components';
 
 import { SwipeDeck } from './swipe-deck';
 
@@ -30,31 +30,49 @@ const matches = [
 ] as const;
 
 export function MatchesScreen() {
+  const readyCount = matches.filter((match) => match.status === 'Ready to chat').length;
+  const averageScore = Math.round(
+    matches.reduce((sum, match) => sum + Number.parseInt(match.score, 10), 0) / matches.length
+  );
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Matches' }} />
+      <Stack.Screen options={{ title: 'Pipeline' }} />
       <ScrollView
         className="flex-1 bg-canvas"
         contentContainerClassName="gap-6 px-5 pt-4 pb-24"
         contentInsetAdjustmentBehavior="automatic">
-        <AppCard className="gap-4">
-          <AppPill className="self-start" label="Swipe Queue" tone="accent" />
-          <AppText variant="hero">Review people with a fast left or right decision.</AppText>
+        <View className="gap-3">
+          <AppPill className="self-start" label="Pipeline" tone="accent" />
+          <AppText variant="hero">Review high-fit members without losing context.</AppText>
           <AppText tone="muted">
-            Swipe left to pass, swipe right to like, or use the X and V actions underneath the card.
+            This queue is built to answer one question fast: who deserves the next step right now?
           </AppText>
-        </AppCard>
+        </View>
+
+        <View className="flex-row gap-3">
+          <AppStatCard
+            className="flex-1"
+            detail="Average fit"
+            label="Score"
+            tone="accent"
+            value={`${averageScore}%`}
+          />
+          <AppStatCard
+            className="flex-1"
+            detail="Ready now"
+            label="Hot Leads"
+            tone="success"
+            value={String(readyCount)}
+          />
+        </View>
 
         <SwipeDeck items={matches} />
 
-        <View className="gap-3">
-          <AppText variant="title">How it behaves</AppText>
-          <AppCard tone="muted" className="gap-2">
-            <AppText tone="muted">The top card follows your finger and rotates with the gesture.</AppText>
-            <AppText tone="muted">The next card scales up as the top card moves away.</AppText>
-            <AppText tone="muted">The X button triggers a left swipe and the V button triggers a right swipe.</AppText>
-          </AppCard>
-        </View>
+        <AppCard tone="muted" className="gap-2">
+          <AppText variant="subtitle">Decision rule</AppText>
+          <AppText tone="muted">Pass when the timing is wrong. Advance when the fit is clear.</AppText>
+        </AppCard>
       </ScrollView>
     </>
   );

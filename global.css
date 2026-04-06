@@ -2,66 +2,29 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 
-:root {
-  --font-rounded: var(--font-sans);
-}
-
-@media ios {
-  :root {
-    --font-rounded: ui-rounded;
-  }
-}
-
-@media android {
-  :root {
-    --font-rounded: sans-serif-medium;
-  }
-}
-
 @theme {
   --font-body: var(--font-sans);
-  --font-display: var(--font-rounded);
+  --font-display: var(--font-sans);
   --font-code: var(--font-mono);
 
-  --color-canvas: #f5ede1;
-  --color-background: #fff8ef;
-  --color-surface: #f9f1e5;
-  --color-surface-raised: #fffdf9;
-  --color-surface-muted: #e8ded0;
-  --color-text: #16202a;
-  --color-text-muted: #5e6b74;
-  --color-text-soft: #869098;
-  --color-accent: #127e74;
-  --color-accent-strong: #0b5f58;
-  --color-accent-tint: #d7f1ed;
-  --color-signal: #e57d57;
-  --color-signal-tint: #fce2d7;
-  --color-border: #d8ccbb;
-  --color-border-strong: #b8a995;
-  --color-success: #24815b;
-  --color-warning: #b56b16;
-  --color-danger: #c84f4c;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-canvas: #0d1518;
-    --color-background: #122027;
-    --color-surface: #16262d;
-    --color-surface-raised: #1b2e36;
-    --color-surface-muted: #22353d;
-    --color-text: #eff7f5;
-    --color-text-muted: #b7c5c9;
-    --color-text-soft: #86979b;
-    --color-accent: #5ee0d1;
-    --color-accent-strong: #a2f4eb;
-    --color-accent-tint: #183a39;
-    --color-signal: #ff9a70;
-    --color-signal-tint: #432920;
-    --color-border: #284048;
-    --color-border-strong: #43616a;
-    --color-success: #5dd29a;
-    --color-warning: #f6b766;
-    --color-danger: #f18b87;
-  }
+  --color-canvas: #0b0b0f;
+  --color-background: #11131a;
+  --color-surface: #1a1a1f;
+  --color-surface-raised: #20222b;
+  --color-surface-muted: #15171d;
+  --color-text: #f5f7fa;
+  --color-text-muted: #98a2b3;
+  --color-text-soft: #667085;
+  --color-accent: #0075ff;
+  --color-accent-strong: #3394ff;
+  --color-accent-tint: #0d2342;
+  --color-signal: #f59e0b;
+  --color-signal-tint: #2c1f08;
+  --color-success: #22c55e;
+  --color-success-tint: #0f2318;
+  --color-warning: #f59e0b;
+  --color-danger: #ff5a67;
+  --color-danger-tint: #301016;
+  --color-border: #262a33;
+  --color-border-strong: #383d49;
 }

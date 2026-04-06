@@ -9,47 +9,57 @@ type ProductCardProps = {
   product: ProductItem;
 };
 
+function formatCurrency(value: number) {
+  return `$${value.toFixed(2)}`;
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <AppCard className="gap-4 overflow-hidden p-0">
-      <Image
-        contentFit="cover"
-        source={{ uri: product.thumbnail }}
-        style={{ height: 220, width: '100%' }}
-      />
+    <AppCard className="gap-4">
+      <View className="flex-row gap-4">
+        <Image
+          contentFit="cover"
+          source={{ uri: product.thumbnail }}
+          style={{ borderRadius: 16, height: 72, width: 72 }}
+        />
 
-      <View className="gap-4 px-5 pb-5">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 gap-2">
-            <AppPill className="self-start" label={product.category} tone="accent" />
-            <AppText variant="title">{product.title}</AppText>
-            <AppText tone="muted">
-              {product.brand ? `${product.brand} · ${product.sku}` : product.sku}
-            </AppText>
+        <View className="flex-1 gap-2">
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1 gap-1">
+              <AppText numberOfLines={1} variant="bodyStrong">
+                {product.title}
+              </AppText>
+              <AppText numberOfLines={1} tone="muted">
+                {product.brand ? `${product.brand} · ${product.category}` : product.category}
+              </AppText>
+            </View>
+            <View className="items-end gap-1">
+              <AppText tone="muted" variant="label">
+                Price
+              </AppText>
+              <AppText variant="subtitle">{formatCurrency(product.price)}</AppText>
+            </View>
           </View>
-          <View className="items-end gap-1">
-            <AppText tone="accent" variant="label">
-              Price
-            </AppText>
-            <AppText variant="title">${product.price.toFixed(2)}</AppText>
-          </View>
-        </View>
 
-        <AppText tone="muted">{product.description}</AppText>
-
-        <View className="flex-row flex-wrap gap-2">
-          <AppPill label={`${product.rating.toFixed(1)} rating`} tone="neutral" />
-          <AppPill label={`${product.stock} in stock`} tone="signal" />
-          <AppPill label={`${product.discountPercentage.toFixed(0)}% off`} tone="accent" />
-        </View>
-
-        <View className="rounded-[24px] border border-border bg-background p-4">
-          <AppText variant="subtitle">Shipping & availability</AppText>
-          <AppText className="mt-2" tone="muted">
-            {product.availabilityStatus} · {product.shippingInformation}
+          <AppText numberOfLines={2} tone="muted">
+            {product.description}
           </AppText>
         </View>
       </View>
+
+      <View className="flex-row flex-wrap gap-2">
+        <AppPill label={`${product.rating.toFixed(1)} rating`} tone="neutral" />
+        <AppPill label={`${product.stock} in stock`} tone={product.stock < 20 ? 'signal' : 'success'} />
+        <AppPill label={`${product.discountPercentage.toFixed(0)}% off`} tone="accent" />
+      </View>
+
+      <AppCard tone="muted" className="gap-1">
+        <AppText tone="muted" variant="label">
+          Availability
+        </AppText>
+        <AppText variant="bodyStrong">{product.availabilityStatus}</AppText>
+        <AppText tone="muted">{product.shippingInformation}</AppText>
+      </AppCard>
     </AppCard>
   );
 }

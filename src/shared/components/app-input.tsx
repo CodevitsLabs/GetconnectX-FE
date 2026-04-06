@@ -1,3 +1,4 @@
+import React from 'react';
 import { TextInput, View, type TextInputProps, type ViewProps } from 'react-native';
 
 import { cn } from '@shared/utils/cn';
@@ -16,19 +17,34 @@ export function AppInput({
   className,
   hint,
   label,
-  placeholderTextColor = '#7B868E',
+  placeholderTextColor = '#667085',
   shellClassName,
   shellProps,
   ...props
 }: AppInputProps) {
+  const [isFocused, setIsFocused] = React.useState(false);
+
   return (
     <View className={cn('gap-2', shellClassName)} {...shellProps}>
-      {label ? <AppText variant="label">{label}</AppText> : null}
+      {label ? (
+        <AppText tone={isFocused ? 'accent' : 'muted'} variant="label">
+          {label}
+        </AppText>
+      ) : null}
       <TextInput
         className={cn(
-          'min-h-14 rounded-[22px] border border-border bg-surface-raised px-4 font-body text-base text-text',
+          'min-h-14 rounded-[16px] border px-4 font-body text-[15px] text-text',
+          isFocused ? 'border-accent bg-background' : 'border-border bg-background',
           className
         )}
+        onBlur={(event) => {
+          setIsFocused(false);
+          props.onBlur?.(event);
+        }}
+        onFocus={(event) => {
+          setIsFocused(true);
+          props.onFocus?.(event);
+        }}
         placeholderTextColor={placeholderTextColor}
         {...props}
       />

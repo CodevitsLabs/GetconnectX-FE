@@ -138,11 +138,11 @@ export function SwipeDeck({ items }: SwipeDeckProps) {
     return (
       <View className="gap-4">
         <View
-          className="rounded-[32px] border border-border bg-surface-raised p-6"
+          className="rounded-[24px] border border-border bg-surface p-5"
           style={Shadows.card}>
-          <AppText variant="hero">You cleared the deck.</AppText>
+          <AppText variant="title">You cleared the pipeline.</AppText>
           <AppText className="mt-2" tone="muted">
-            New mock profiles can drop here later from React Query once the backend is ready.
+            Fresh candidates can repopulate this queue as new high-fit profiles arrive.
           </AppText>
         </View>
       </View>
@@ -154,16 +154,16 @@ export function SwipeDeck({ items }: SwipeDeckProps) {
       <View className="min-h-[510px] justify-start">
         {nextItem ? (
           <Animated.View
-            className="absolute inset-x-2 top-4 rounded-[32px] border border-border bg-surface p-6"
+            className="absolute inset-x-3 top-4 rounded-[24px] border border-border bg-background p-5"
             style={[Shadows.card, nextCardStyle]}>
             <AppPill className="self-start" label="Up Next" tone="neutral" />
-            <AppText className="mt-5" variant="title">
+            <AppText className="mt-4" variant="title">
               {nextItem.name}
             </AppText>
             <AppText className="mt-1" tone="muted">
               {nextItem.role}
             </AppText>
-            <AppText className="mt-5" tone="muted">
+            <AppText className="mt-4" tone="muted">
               {nextItem.bio}
             </AppText>
           </Animated.View>
@@ -171,58 +171,70 @@ export function SwipeDeck({ items }: SwipeDeckProps) {
 
         <GestureDetector gesture={panGesture}>
           <Animated.View
-            className="absolute inset-x-0 top-0 rounded-[36px] border border-border bg-surface-raised p-6"
+            className="absolute inset-x-0 top-0 rounded-[28px] border border-border bg-surface p-5"
             style={[Shadows.card, topCardStyle]}>
             <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1 gap-1">
-                <AppPill className="self-start" label={currentItem.status} tone="accent" />
-                <AppText className="mt-4" variant="display">
+              <View className="flex-1 gap-2">
+                <AppPill
+                  className="self-start"
+                  label={currentItem.status}
+                  tone={
+                    currentItem.status === 'Ready to chat'
+                      ? 'success'
+                      : currentItem.status === 'Needs review'
+                        ? 'signal'
+                        : 'accent'
+                  }
+                />
+                <AppText className="mt-2" variant="hero">
                   {currentItem.name}
                 </AppText>
                 <AppText tone="muted" variant="subtitle">
                   {currentItem.role}
                 </AppText>
               </View>
-              <View className="rounded-[24px] bg-accent-tint px-4 py-3">
-                <AppText tone="accent" variant="label">
-                  Fit
+              <View className="items-end rounded-[18px] border border-accent/20 bg-accent-tint px-4 py-3">
+                <AppText tone="muted" variant="label">
+                  Fit Score
                 </AppText>
-                <AppText tone="accent" variant="title">
+                <AppText variant="title">
                   {currentItem.score}
                 </AppText>
               </View>
             </View>
 
-            <View className="mt-8 gap-4">
-              <View className="rounded-[28px] border border-border bg-canvas/70 p-4">
-                <AppText variant="subtitle">Why this profile stands out</AppText>
+            <View className="mt-6 gap-4">
+              <View className="rounded-[20px] border border-border bg-background p-4">
+                <AppText tone="muted" variant="label">
+                  Assessment
+                </AppText>
                 <AppText className="mt-2" tone="muted">
                   {currentItem.bio}
                 </AppText>
               </View>
 
               <View className="flex-row gap-3">
-                <View className="flex-1 rounded-[24px] border border-border bg-background p-4">
-                  <AppText tone="signal" variant="label">
-                    Pass
+                <View className="flex-1 rounded-[20px] border border-border bg-background p-4">
+                  <AppText tone="muted" variant="label">
+                    Status
                   </AppText>
                   <AppText className="mt-1" tone="muted">
-                    Swipe left if this one is not the right fit today.
+                    {currentItem.status}
                   </AppText>
                 </View>
-                <View className="flex-1 rounded-[24px] border border-border bg-background p-4">
-                  <AppText tone="accent" variant="label">
-                    Like
+                <View className="flex-1 rounded-[20px] border border-border bg-background p-4">
+                  <AppText tone="muted" variant="label">
+                    Next Move
                   </AppText>
                   <AppText className="mt-1" tone="muted">
-                    Swipe right when you want to open the path forward.
+                    Advance when the fit is strong and timing is right.
                   </AppText>
                 </View>
               </View>
             </View>
 
             <Animated.View
-              className="absolute left-6 top-8 rounded-full border border-signal bg-signal-tint px-4 py-2"
+              className="absolute left-5 top-6 rounded-full border border-signal bg-signal-tint px-4 py-2"
               style={leftBadgeStyle}>
               <AppText tone="signal" variant="label">
                 Pass
@@ -230,37 +242,37 @@ export function SwipeDeck({ items }: SwipeDeckProps) {
             </Animated.View>
 
             <Animated.View
-              className="absolute right-6 top-8 rounded-full border border-accent bg-accent-tint px-4 py-2"
+              className="absolute right-5 top-6 rounded-full border border-accent bg-accent-tint px-4 py-2"
               style={rightBadgeStyle}>
               <AppText tone="accent" variant="label">
-                Like
+                Advance
               </AppText>
             </Animated.View>
           </Animated.View>
         </GestureDetector>
       </View>
 
-      <View className="flex-row items-center justify-center gap-5">
+      <View className="flex-row items-center justify-center gap-3">
         <Pressable
           android_ripple={{ color: 'rgba(229,125,87,0.16)', borderless: false }}
-          className="h-16 w-16 items-center justify-center rounded-full border border-signal bg-signal-tint"
+          className="h-14 flex-1 items-center justify-center rounded-[16px] border border-border-strong bg-background"
           onPress={() => {
             forceSwipe('left');
           }}>
-          <AppText tone="signal" variant="title">
-            X
+          <AppText tone="muted" variant="bodyStrong">
+            Pass
           </AppText>
         </Pressable>
 
         <Pressable
-          android_ripple={{ color: 'rgba(18,126,116,0.16)', borderless: false }}
-          className="h-20 w-20 items-center justify-center rounded-full bg-accent"
+          android_ripple={{ color: 'rgba(255,255,255,0.12)', borderless: false }}
+          className="h-14 flex-1 items-center justify-center rounded-[16px] bg-accent"
           onPress={() => {
             forceSwipe('right');
           }}
           style={Shadows.floating}>
-          <AppText tone="inverse" variant="title">
-            V
+          <AppText tone="inverse" variant="bodyStrong">
+            Advance
           </AppText>
         </Pressable>
       </View>

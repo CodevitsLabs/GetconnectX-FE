@@ -18,7 +18,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? 'dark';
   const [queryClient] = React.useState(() => createQueryClient());
 
   return (
@@ -35,7 +35,7 @@ export default function RootLayout() {
                 options={{ presentation: 'modal', title: 'Design Principles' }}
               />
             </Stack>
-            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <StatusBar style="light" />
           </ThemeProvider>
         </AuthProvider>
       </QueryClientProvider>

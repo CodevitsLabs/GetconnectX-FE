@@ -3,13 +3,13 @@ import { Text, type TextProps } from 'react-native';
 import { cn } from '@shared/utils/cn';
 
 const variantStyles = {
-  display: 'font-display text-5xl leading-[52px] tracking-[-1.25px]',
-  hero: 'font-display text-4xl leading-10 tracking-[-0.9px]',
-  title: 'font-display text-[26px] leading-8 tracking-[-0.45px]',
-  subtitle: 'font-body text-lg font-semibold leading-7',
-  body: 'font-body text-base leading-6',
-  bodyStrong: 'font-body text-base font-semibold leading-6',
-  label: 'font-body text-xs font-bold uppercase tracking-[1.8px]',
+  display: 'font-display text-[40px] leading-[44px] tracking-[-1.4px] font-bold',
+  hero: 'font-display text-[32px] leading-[38px] tracking-[-1px] font-bold',
+  title: 'font-display text-2xl leading-[30px] tracking-[-0.7px] font-bold',
+  subtitle: 'font-body text-lg font-semibold leading-6',
+  body: 'font-body text-[15px] leading-[22px]',
+  bodyStrong: 'font-body text-[15px] leading-[22px] font-semibold',
+  label: 'font-body text-xs font-semibold uppercase tracking-[0.9px]',
   code: 'font-code text-[13px] leading-5',
 } as const;
 
@@ -18,8 +18,10 @@ const toneStyles = {
   muted: 'text-text-muted',
   soft: 'text-text-soft',
   accent: 'text-accent',
-  inverse: 'text-background',
+  inverse: 'text-text',
   signal: 'text-signal',
+  success: 'text-success',
+  danger: 'text-danger',
 } as const;
 
 const alignStyles = {

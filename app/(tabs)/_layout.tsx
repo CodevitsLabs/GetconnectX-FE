@@ -17,22 +17,22 @@ export default function TabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Label>Home</Label>
+        <Label>Overview</Label>
         <Icon sf="house.fill" drawable="home" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="matches">
-        <Label>Matches</Label>
+        <Label>Pipeline</Label>
         <Icon sf="heart.fill" drawable="favorite" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="products">
-        <Label>Products</Label>
+        <Label>Market</Label>
         <Icon sf="bag.fill" drawable="shopping-bag" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="chat">
-        <Label>Chat</Label>
+        <Label>Inbox</Label>
         <Icon sf="bubble.left.and.bubble.right.fill" drawable="chat" />
       </NativeTabs.Trigger>
 
@@ -42,7 +42,7 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
-        <Label>Profile</Label>
+        <Label>Account</Label>
         <Icon sf="person.crop.circle.fill" drawable="account-circle" />
       </NativeTabs.Trigger>
     </NativeTabs>

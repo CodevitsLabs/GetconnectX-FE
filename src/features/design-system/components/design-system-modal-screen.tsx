@@ -1,12 +1,12 @@
 import { ScrollView, View } from 'react-native';
 
-import { AppCard, AppText } from '@shared/components';
+import { AppCard, AppListItem, AppText } from '@shared/components';
 import { DesignPrinciples } from '@shared/theme';
 
 const implementationNotes = [
-  'Use semantic token names in product code so future palette changes do not require component rewrites.',
-  'Keep route files focused on composition; reusable UI primitives should live outside the `app` directory.',
-  'Expo Router API routes can adopt these tokens for docs or previews later, but the token source itself remains client-safe and shared.',
+  'Use semantic token names so screens can change tone without rewriting component logic.',
+  'Keep routes focused on composition; shared primitives should carry the visual system.',
+  'Reserve bright blue for primary actions and meaningful state changes only.',
 ] as const;
 
 export function DesignSystemModalScreen() {
@@ -19,10 +19,9 @@ export function DesignSystemModalScreen() {
         <AppText tone="accent" variant="label">
           System Summary
         </AppText>
-        <AppText variant="hero">Design rules to keep the app cohesive as it grows.</AppText>
+        <AppText variant="hero">A dark-first system built for clarity, speed, and trust.</AppText>
         <AppText tone="muted">
-          This sheet is the quick reference for future screens, feature spikes, and any shared UI
-          work we add later.
+          This sheet keeps future screens aligned to the same premium product language.
         </AppText>
       </AppCard>
 
@@ -38,9 +37,12 @@ export function DesignSystemModalScreen() {
       <AppCard tone="muted" className="gap-3">
         <AppText variant="subtitle">Implementation Notes</AppText>
         {implementationNotes.map((note) => (
-          <AppText key={note} tone="muted">
-            - {note}
-          </AppText>
+          <AppListItem
+            key={note}
+            description={note}
+            leading={<AppText tone="accent" variant="bodyStrong">•</AppText>}
+            title="Rule"
+          />
         ))}
       </AppCard>
     </ScrollView>
