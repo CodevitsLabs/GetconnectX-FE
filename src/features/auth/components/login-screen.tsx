@@ -1,6 +1,6 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 
 import { AppText } from '@shared/components';
@@ -97,10 +97,7 @@ export function LoginScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false, title: 'Login' }} />
-      <ScrollView
-        className="flex-1 bg-[#111015]"
-        contentContainerClassName="min-h-full px-4 pb-10 pt-12"
-        contentInsetAdjustmentBehavior="automatic">
+      <View className="flex-1 bg-[#111015] px-4 pb-10 pt-12">
         <View className="flex-1 justify-between gap-10">
           <View className="gap-10">
             <View className="items-center gap-2 pt-8">
@@ -229,9 +226,8 @@ export function LoginScreen() {
                 <View className="h-px flex-1 bg-[#2A2C36]" />
               </View>
 
-              <View className="flex-row gap-4">
+              <View>
                 <View
-                  className="flex-1"
                   pointerEvents={
                     isGoogleSubmitting || isSubmitting || process.env.EXPO_OS === 'web'
                       ? 'none'
@@ -314,19 +310,6 @@ export function LoginScreen() {
                     </View>
                   )}
                 </View>
-
-                <Pressable
-                  className="flex-1 rounded-[18px] border border-[#2A2B33] bg-[#232228] px-4 py-5 opacity-80"
-                  disabled>
-                  <View className="flex-row items-center justify-center gap-2">
-                    <AppText className="tracking-[1.2px] text-white" variant="subtitle">
-                      APPLE
-                    </AppText>
-                    <AppText className="text-[#D5D8E0]" variant="code">
-                      Soon
-                    </AppText>
-                  </View>
-                </Pressable>
               </View>
             </View>
           </View>
@@ -357,7 +340,7 @@ export function LoginScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </View>
     </>
   );
 }
