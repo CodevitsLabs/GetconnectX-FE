@@ -1,7 +1,7 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, TextInput, View } from 'react-native';
-import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
+import { AntDesign } from '@expo/vector-icons';
 
 import { AppText } from '@shared/components';
 
@@ -250,53 +250,53 @@ export function LoginScreen() {
                       </View>
                     </Pressable>
                   ) : (
-                    <View
-                      style={{
-                        overflow: 'hidden',
-                        borderRadius: 18,
-                      }}>
-                      <GoogleSigninButton
-                        color={GoogleSigninButton.Color.Light}
-                        onPress={async () => {
-                          if (isGoogleSubmitting || isSubmitting) {
-                            return;
-                          }
+                    <Pressable
+                      className="flex-row items-center justify-center gap-3 rounded-[18px] border border-[#2A2B33] bg-[#232228] px-4 py-4 active:opacity-70"
+                      onPress={async () => {
+                        if (isGoogleSubmitting || isSubmitting) {
+                          return;
+                        }
 
-                          setEmailError(null);
-                          setPasswordError(null);
-                          setStatusMessage(null);
+                        setEmailError(null);
+                        setPasswordError(null);
+                        setStatusMessage(null);
+                        setGooglePayloadPreview(null);
+                        setIsGoogleSubmitting(true);
+
+                        try {
+                          const result = await signInWithGoogle();
+
+                          console.info('Google OAuth payload ready for backend exchange.', {
+                            email: result.email,
+                            provider: result.provider,
+                            providerTokenPreview: formatProviderTokenPreview(result.providerToken),
+                            fcmToken: result.fcmToken,
+                          });
+
+                          router.replace('/(tabs)');
+                        } catch (error) {
                           setGooglePayloadPreview(null);
-                          setIsGoogleSubmitting(true);
-
-                          try {
-                            const result = await signInWithGoogle();
-
-                            console.info('Google OAuth payload ready for backend exchange.', {
-                              email: result.email,
-                              provider: result.provider,
-                              providerTokenPreview: formatProviderTokenPreview(result.providerToken),
-                              fcmToken: result.fcmToken,
-                            });
-
-                            router.replace('/(tabs)');
-                          } catch (error) {
-                            setGooglePayloadPreview(null);
-                            setStatusMessage(
-                              error instanceof Error
-                                ? error.message
-                                : 'Google Sign-In failed. Please try again.'
-                            );
-                          } finally {
-                            setIsGoogleSubmitting(false);
-                          }
-                        }}
-                        size={GoogleSigninButton.Size.Wide}
-                        style={{
-                          width: '100%',
-                          height: 56,
-                        }}
-                      />
-                    </View>
+                          setStatusMessage(
+                            error instanceof Error
+                              ? error.message
+                              : 'Google Sign-In failed. Please try again.'
+                          );
+                        } finally {
+                          setIsGoogleSubmitting(false);
+                        }
+                      }}
+                      style={{ minHeight: 58 }}>
+                      {isGoogleSubmitting ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <AntDesign color="#FFFFFF" name="google" size={24} />
+                          <AppText className="tracking-[1px] text-white" variant="subtitle">
+                            CONTINUE WITH GOOGLE
+                          </AppText>
+                        </>
+                      )}
+                    </Pressable>
                   )}
                 </View>
               </View>
