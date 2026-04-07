@@ -34,6 +34,7 @@ export default function RootLayout() {
                 name="modal"
                 options={{ presentation: 'modal', title: 'Design Principles' }}
               />
+              <Stack.Screen name="conversation" options={{ headerShown: false }} />
             </Stack>
             <StatusBar style="light" />
           </ThemeProvider>
