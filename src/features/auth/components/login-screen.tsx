@@ -270,26 +270,15 @@ export function LoginScreen() {
 
                           try {
                             const result = await signInWithGoogle();
-                            const payloadPreview = JSON.stringify(
-                              {
-                                provider: result.provider,
-                                providerToken: formatProviderTokenPreview(result.providerToken),
-                                fcmToken: result.fcmToken,
-                              },
-                              null,
-                              2
-                            );
 
                             console.info('Google OAuth payload ready for backend exchange.', {
+                              email: result.email,
                               provider: result.provider,
                               providerTokenPreview: formatProviderTokenPreview(result.providerToken),
                               fcmToken: result.fcmToken,
                             });
 
-                            setGooglePayloadPreview(payloadPreview);
-                            setStatusMessage(
-                              'Google Sign-In succeeded. The provider token is ready for the backend exchange.'
-                            );
+                            router.replace('/(tabs)');
                           } catch (error) {
                             setGooglePayloadPreview(null);
                             setStatusMessage(

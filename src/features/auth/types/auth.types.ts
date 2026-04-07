@@ -45,9 +45,12 @@ export type VerifyEmailPayload = {
 };
 
 export type GoogleAuthResult = {
+  email: string;
+  displayName: string;
   provider: 'google';
   providerToken: string;
   fcmToken: string | null;
+  userId: string;
 };
 
 export type OtpMessageResponse = {

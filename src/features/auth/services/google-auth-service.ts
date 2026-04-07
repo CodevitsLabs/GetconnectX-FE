@@ -80,17 +80,23 @@ export async function signInWithGoogleToken(): Promise<GoogleAuthResult> {
     }
 
     const providerToken = response.data.idToken?.trim();
+    const email = response.data.user.email.trim().toLowerCase();
+    const displayName = response.data.user.name?.trim() || email.split('@')[0] || 'ConnectX Member';
+    const userId = response.data.user.id.trim();
 
-    if (!providerToken) {
+    if (!providerToken || !email || !userId) {
       throw new Error(
-        'Google Sign-In succeeded, but no ID token was returned. Check the configured Google OAuth client IDs.'
+        'Google Sign-In succeeded, but the expected identity payload was incomplete. Check the configured Google OAuth client IDs.'
       );
     }
 
     return {
+      email,
+      displayName,
       provider: 'google',
       providerToken,
       fcmToken: null,
+      userId,
     };
   } catch (error) {
     throw normalizeGoogleSignInError(error);

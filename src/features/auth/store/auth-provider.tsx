@@ -96,7 +96,33 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   }, []);
 
   const signInWithGoogle = React.useCallback(async () => {
-    return signInWithGoogleToken();
+    const result = await signInWithGoogleToken();
+    const verifiedAt = new Date().toISOString();
+    const nextSession: AuthSession = {
+      authPhase: 'authenticated',
+      displayName: result.displayName,
+      email: result.email,
+      emailOtpCode: null,
+      emailOtpExpiresAt: null,
+      emailOtpLastSentAt: null,
+      emailOtpResendAvailableAt: null,
+      method: 'google',
+      user: {
+        id: result.userId,
+        entity_type: null,
+        email: result.email,
+        email_verified_at: verifiedAt,
+        whatsapp_number: null,
+        whatsapp_verified_at: null,
+        registration_step: 4,
+        is_active: true,
+      },
+    };
+
+    setSession(nextSession);
+    setAuthPhase(nextSession.authPhase);
+
+    return result;
   }, []);
 
   const register = React.useCallback(
