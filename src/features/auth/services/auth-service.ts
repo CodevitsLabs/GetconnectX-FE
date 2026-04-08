@@ -202,11 +202,12 @@ export async function registerWithApi(
   const response = await apiFetch<{
     data: {
       user: AuthUser;
-      token: string;
     };
     message: string;
     next_step: string;
     status: string;
+    token: string;
+    token_type: string;
   }>(AUTH_API.REGISTER, {
     method: 'POST',
     body: {
@@ -215,10 +216,8 @@ export async function registerWithApi(
     } as any,
   });
 
-  console.log('response', response);
-
   const user = response.data.user;
-  const token = response.data.token;
+  const token = response.token;
   const session = createPendingEmailSession(user.email);
   session.user = user;
 
