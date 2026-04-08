@@ -1,7 +1,7 @@
 import { AntDesign } from '@expo/vector-icons';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, TouchableOpacity, View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -125,8 +125,7 @@ export function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <View
       className="flex-1 bg-canvas"
     >
       <Stack.Screen options={{ headerShown: false }} />
@@ -244,6 +243,6 @@ export function LoginScreen() {
           </View>
         </View>
       </Pressable>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
