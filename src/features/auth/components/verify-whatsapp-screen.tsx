@@ -1,28 +1,12 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 
-import { AppButton, AppCard, AppInput, AppText } from '@shared/components';
+import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 
 import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
-
-type VerificationStep = 'collect_number' | 'enter_otp';
-
-function getSecondsRemaining(timestamp: string | null | undefined) {
-  if (!timestamp) {
-    return 0;
-  }
-
-  const remainingMs = new Date(timestamp).getTime() - Date.now();
-
-  if (remainingMs <= 0) {
-    return 0;
-  }
-
-  return Math.ceil(remainingMs / 1000);
-}
 
 function normalizeWhatsappNumber(value: string) {
   const trimmedValue = value.trim();
@@ -55,22 +39,14 @@ function normalizeWhatsappNumber(value: string) {
 
 function getWhatsappNumberError(value: string) {
   if (!value) {
-    return 'Nomor WhatsApp wajib diisi.';
+    return 'WhatsApp number is required.';
   }
 
   if (!/^\+\d{10,15}$/.test(value)) {
-    return 'Gunakan format nomor seperti +6281234567890.';
+    return 'Use a format like +6281234567890.';
   }
 
   return null;
-}
-
-function maskWhatsappNumber(value: string) {
-  if (value.length <= 6) {
-    return value;
-  }
-
-  return `${value.slice(0, 4)} ${'*'.repeat(Math.max(0, value.length - 6))}${value.slice(-2)}`;
 }
 
 export function VerifyWhatsappScreen() {
@@ -78,65 +54,31 @@ export function VerifyWhatsappScreen() {
   const {
     authPhase,
     isHydrated,
-    resendWhatsappOtp,
     session,
     sendWhatsappOtp,
-    verifyWhatsappOtp,
   } = useAuth();
+  
   const persistedWhatsappNumber = session?.user?.whatsapp_number ?? session?.pendingWhatsappNumber ?? '';
   const hasPersistedOtpState = Boolean(
     persistedWhatsappNumber && session?.whatsappOtpLastSentAt
   );
-  const [step, setStep] = React.useState<VerificationStep>(
-    hasPersistedOtpState ? 'enter_otp' : 'collect_number'
-  );
+  
   const [whatsappNumber, setWhatsappNumber] = React.useState(persistedWhatsappNumber);
-  const [otpCode, setOtpCode] = React.useState('');
   const [whatsappError, setWhatsappError] = React.useState<string | null>(null);
-  const [otpError, setOtpError] = React.useState<string | null>(null);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [statusTone, setStatusTone] = React.useState<'danger' | 'signal'>('signal');
   const [isSendingOtp, setIsSendingOtp] = React.useState(false);
-  const [isResendingOtp, setIsResendingOtp] = React.useState(false);
-  const [isVerifying, setIsVerifying] = React.useState(false);
-  const [secondsRemaining, setSecondsRemaining] = React.useState(
-    getSecondsRemaining(session?.whatsappOtpResendAvailableAt)
-  );
 
   React.useEffect(() => {
     setWhatsappNumber(persistedWhatsappNumber);
   }, [persistedWhatsappNumber]);
 
   React.useEffect(() => {
-    setSecondsRemaining(getSecondsRemaining(session?.whatsappOtpResendAvailableAt));
-  }, [session?.whatsappOtpResendAvailableAt]);
-
-  React.useEffect(() => {
     if (hasPersistedOtpState) {
-      setStep('enter_otp');
+        // Automatically route to otp screen if we already had a pending otp
+        router.replace('/verify-otp');
     }
   }, [hasPersistedOtpState]);
-
-  React.useEffect(() => {
-    if (!secondsRemaining) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setSecondsRemaining((current) => {
-        if (current <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, [secondsRemaining]);
 
   if (!isHydrated) {
     return null;
@@ -150,289 +92,96 @@ export function VerifyWhatsappScreen() {
     return <Redirect href={getRouteForAuthPhase(authPhase)} />;
   }
 
+  const handleSendOtp = async () => {
+    const normalizedNumber = normalizeWhatsappNumber(whatsappNumber);
+    const nextWhatsappError = getWhatsappNumberError(normalizedNumber);
+
+    setWhatsappError(nextWhatsappError);
+    setStatusMessage(null);
+    setStatusTone('signal');
+    setWhatsappNumber(normalizedNumber);
+
+    if (nextWhatsappError) {
+      setStatusTone('danger');
+      return;
+    }
+
+    setIsSendingOtp(true);
+
+    try {
+      await sendWhatsappOtp({ whatsapp_number: normalizedNumber });
+      setStatusTone('signal');
+      router.push('/verify-otp');
+    } catch (error: unknown) {
+      setStatusTone('danger');
+
+      if (error instanceof ApiError && error.payload) {
+        const payload = error.payload as { errors?: { whatsapp_number?: string[] }; message?: string; };
+        if (payload.errors?.whatsapp_number?.[0]) setWhatsappError(payload.errors.whatsapp_number[0]);
+        setStatusMessage(payload.message ?? error.message);
+      } else {
+        setStatusMessage(error instanceof Error ? error.message : 'Failed to send WhatsApp OTP.');
+      }
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false, title: 'Verify WhatsApp' }} />
-      <ScrollView
-        className="flex-1 bg-canvas"
-        contentContainerClassName="gap-6 px-5 pt-6 pb-24"
-        contentInsetAdjustmentBehavior="automatic">
-        <AppCard
-          className="gap-5 overflow-hidden border-accent/10 bg-[#081223] px-5 py-6"
-          style={{ boxShadow: '0 24px 60px rgba(0, 36, 102, 0.28)' }}>
-          <View className="gap-3">
-            <AppText className="text-[#8FB9FF]" variant="label">
-              Verifikasi WhatsApp
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-canvas"
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <View className="flex-1 px-5 pt-16 pb-8">
+        
+        {/* Back Button omitted intentionally per user request */}
+
+        <View className="flex-1 pt-8">
+          <View className="gap-2 shrink-0">
+            <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
+              Enter WhatsApp Number
             </AppText>
-            <AppText className="text-white" variant="display">
-              Satu langkah lagi untuk masuk ke ConnectX.
-            </AppText>
-            <AppText className="text-[#AFC4E8]">
-              Email kamu sudah terverifikasi. Sekarang hubungkan nomor WhatsApp aktif untuk
-              menerima kode OTP dan menyelesaikan registrasi.
+            <AppText tone="muted" className="text-base">
+              We'll send a 6-digit code to verify your identity.
             </AppText>
           </View>
 
-          <View className="gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4">
-            <AppText className="text-white" variant="subtitle">
-              Status akun
-            </AppText>
-            <AppText selectable className="text-[#C9DAF6]">
-              {session.email}
-            </AppText>
-            <View className="flex-row flex-wrap gap-3">
-              <View className="rounded-full border border-success/25 bg-success-tint px-3 py-2">
-                <AppText tone="success" variant="code">
-                  Email siap
-                </AppText>
-              </View>
-              <View className="rounded-full border border-signal/25 bg-signal-tint px-3 py-2">
-                <AppText tone="signal" variant="code">
-                  Menunggu OTP WhatsApp
-                </AppText>
-              </View>
-            </View>
+          <View className="mt-8 shrink-0">
+            <AppInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              error={whatsappError ?? undefined}
+              keyboardType="phone-pad"
+              onChangeText={(value) => {
+                setWhatsappNumber(normalizeWhatsappNumber(value));
+                if (whatsappError) setWhatsappError(null);
+              }}
+              placeholder="+62 812 3456 7890"
+              value={whatsappNumber}
+              className="bg-transparent border-0 border-b border-border rounded-none px-0 text-2xl h-16 min-h-16"
+              placeholderTextColor="#64748B"
+            />
           </View>
-        </AppCard>
 
-        <AppCard className="gap-5 p-5">
-          {step === 'collect_number' ? (
-            <>
-              <View className="gap-2">
-                <AppText variant="title">Masukkan nomor WhatsApp</AppText>
-                <AppText tone="muted">
-                  Gunakan nomor yang aktif menerima pesan WhatsApp. Kode OTP berlaku selama 10
-                  menit setelah terkirim.
-                </AppText>
-              </View>
-
-              <AppInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={whatsappError ?? undefined}
-                keyboardType="phone-pad"
-                label="Nomor WhatsApp"
-                onChangeText={(value) => {
-                  setWhatsappNumber(normalizeWhatsappNumber(value));
-
-                  if (whatsappError) {
-                    setWhatsappError(null);
-                  }
-                }}
-                placeholder="+6281234567890"
-                value={whatsappNumber}
-              />
-
-              <View className="gap-3 rounded-[20px] border border-border bg-background p-4">
-                <AppText variant="subtitle">Format yang disarankan</AppText>
-                <AppText selectable tone="muted">
-                  Mulai dengan kode negara, misalnya `+6281234567890`.
-                </AppText>
-              </View>
-
-              <AppButton
-                detail="Kami akan kirim OTP ke WhatsApp kamu"
-                disabled={isSendingOtp}
-                label={isSendingOtp ? 'Mengirim OTP...' : 'Kirim Kode OTP'}
-                onPress={async () => {
-                  const normalizedNumber = normalizeWhatsappNumber(whatsappNumber);
-                  const nextWhatsappError = getWhatsappNumberError(normalizedNumber);
-
-                  setWhatsappError(nextWhatsappError);
-                  setOtpError(null);
-                  setStatusMessage(null);
-                  setStatusTone('signal');
-                  setWhatsappNumber(normalizedNumber);
-
-                  if (nextWhatsappError) {
-                    setStatusTone('danger');
-                    return;
-                  }
-
-                  setIsSendingOtp(true);
-
-                  try {
-                    const result = await sendWhatsappOtp({ whatsapp_number: normalizedNumber });
-
-                    setWhatsappNumber(result.session.pendingWhatsappNumber ?? normalizedNumber);
-                    setStatusTone('signal');
-                    setStatusMessage(result.response.message);
-                    setStep('enter_otp');
-                  } catch (error: unknown) {
-                    setStatusTone('danger');
-
-                    if (error instanceof ApiError && error.payload) {
-                      const payload = error.payload as {
-                        errors?: {
-                          whatsapp_number?: string[];
-                        };
-                        message?: string;
-                      };
-
-                      if (payload.errors?.whatsapp_number?.[0]) {
-                        setWhatsappError(payload.errors.whatsapp_number[0]);
-                      }
-
-                      setStatusMessage(payload.message ?? error.message);
-                    } else {
-                      setStatusMessage(
-                        error instanceof Error ? error.message : 'Gagal mengirim OTP WhatsApp.'
-                      );
-                    }
-                  } finally {
-                    setIsSendingOtp(false);
-                  }
-                }}
-                size="lg"
-              />
-            </>
-          ) : (
-            <>
-              <View className="gap-2">
-                <AppText variant="title">Masukkan kode OTP</AppText>
-                <AppText tone="muted">
-                  OTP sudah dikirim ke WhatsApp {maskWhatsappNumber(whatsappNumber)}. Masukkan 6
-                  digit kodenya untuk menyelesaikan registrasi.
-                </AppText>
-              </View>
-
-              <View className="gap-3 rounded-[24px] border border-success/25 bg-success-tint p-4">
-                <AppText variant="subtitle">Nomor tujuan</AppText>
-                <AppText selectable tone="success" variant="bodyStrong">
-                  {whatsappNumber}
-                </AppText>
-                <AppText tone="muted" variant="code">
-                  Perlu ganti nomor? Kembali ke langkah sebelumnya lalu kirim OTP baru.
-                </AppText>
-              </View>
-
-              <AppInput
-                error={otpError ?? undefined}
-                hint="6 digit kode OTP"
-                keyboardType="number-pad"
-                label="Kode OTP"
-                maxLength={6}
-                onChangeText={(value) => {
-                  const normalizedValue = value.replace(/\D/g, '').slice(0, 6);
-
-                  setOtpCode(normalizedValue);
-
-                  if (otpError) {
-                    setOtpError(null);
-                  }
-                }}
-                placeholder="396507"
-                value={otpCode}
-              />
-
-              <AppButton
-                detail="Akses aplikasi akan dibuka setelah verifikasi berhasil"
-                disabled={isVerifying || otpCode.length !== 6}
-                label={isVerifying ? 'Memverifikasi...' : 'Verifikasi WhatsApp'}
-                onPress={async () => {
-                  setIsVerifying(true);
-                  setOtpError(null);
-                  setStatusMessage(null);
-                  setStatusTone('signal');
-
-                  try {
-                    const result = await verifyWhatsappOtp({ otp_code: otpCode });
-
-                    if ('errors' in result.response) {
-                      setStatusTone('danger');
-                      setOtpError(result.response.errors.otp_code[0] ?? result.response.message);
-                      setStatusMessage(result.response.message);
-                      return;
-                    }
-
-                    if (result.response.next_step === 'NEED_EMAIL_OTP') {
-                      setStatusTone('danger');
-                      router.replace({
-                        pathname: '/verify-email',
-                        params: { status: result.response.message },
-                      });
-                      return;
-                    }
-
-                    setStatusMessage(result.response.message);
-                    router.replace('/(tabs)');
-                  } catch (error: unknown) {
-                    setStatusTone('danger');
-
-                    if (error instanceof ApiError && error.payload) {
-                      const payload = error.payload as { message?: string };
-                      setStatusMessage(payload.message ?? error.message);
-                    } else {
-                      setStatusMessage(
-                        error instanceof Error ? error.message : 'Verifikasi WhatsApp gagal.'
-                      );
-                    }
-                  } finally {
-                    setIsVerifying(false);
-                  }
-                }}
-                size="lg"
-              />
-
-              <AppButton
-                detail={
-                  secondsRemaining
-                    ? `Coba lagi dalam ${secondsRemaining} detik`
-                    : 'Kirim ulang OTP ke nomor yang sama'
-                }
-                disabled={isResendingOtp || secondsRemaining > 0}
-                label={isResendingOtp ? 'Mengirim ulang...' : 'Kirim Ulang OTP'}
-                onPress={async () => {
-                  setIsResendingOtp(true);
-                  setStatusMessage(null);
-                  setStatusTone('signal');
-
-                  try {
-                    const result = await resendWhatsappOtp();
-
-                    setWhatsappNumber(result.session.pendingWhatsappNumber ?? whatsappNumber);
-                    setStatusTone('signal');
-                    setStatusMessage(result.response.message);
-                  } catch (error: unknown) {
-                    setStatusTone('danger');
-
-                    if (error instanceof ApiError && error.payload) {
-                      const payload = error.payload as { message?: string };
-                      setStatusMessage(payload.message ?? error.message);
-                    } else {
-                      setStatusMessage(
-                        error instanceof Error ? error.message : 'Gagal mengirim ulang OTP.'
-                      );
-                    }
-                  } finally {
-                    setIsResendingOtp(false);
-                  }
-                }}
-                variant="secondary"
-              />
-
-              <AppButton
-                detail="Masukkan nomor baru lalu kirim OTP lagi"
-                label="Ganti Nomor WhatsApp"
-                onPress={() => {
-                  setStep('collect_number');
-                  setOtpCode('');
-                  setOtpError(null);
-                  setStatusMessage(null);
-                  setStatusTone('signal');
-                }}
-                variant="ghost"
-              />
-            </>
+          {statusMessage && statusTone === 'danger' && (
+            <AppText tone="danger" className="mt-4">{statusMessage}</AppText>
           )}
 
-          {statusMessage ? (
-            <AppText selectable tone={statusTone}>
-              {statusMessage}
+          <View className="flex-1 justify-end shrink-0 pt-8">
+            <AppButton
+              disabled={isSendingOtp || !whatsappNumber}
+              label={isSendingOtp ? 'Sending...' : 'Continue'}
+              onPress={handleSendOtp}
+              size="lg"
+              className="w-full bg-[#0066FF] rounded-[16px] border-none"
+            />
+            <AppText align="center" tone="muted" className="mt-4 text-[13px]">
+              By entering your number you agree to our Terms & Privacy Policy
             </AppText>
-          ) : null}
-        </AppCard>
-      </ScrollView>
-    </>
+          </View>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

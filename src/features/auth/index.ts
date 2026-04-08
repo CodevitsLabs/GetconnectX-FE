@@ -2,6 +2,7 @@ export { LoginScreen } from './components/login-screen';
 export { RegisterScreen } from './components/register-screen';
 export { VerifyEmailScreen } from './components/verify-email-screen';
 export { VerifyWhatsappScreen } from './components/verify-whatsapp-screen';
+export { VerifyOtpScreen } from './components/verify-otp-screen';
 export { AuthIndexRedirect } from './components/auth-index-redirect';
 export { useAuth } from './hooks/use-auth';
 export { AuthProvider } from './store/auth-provider';
