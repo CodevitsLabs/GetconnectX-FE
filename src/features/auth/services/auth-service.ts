@@ -1,5 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { apiFetch } from '@shared/services/api';
+
 import type {
   AuthSession,
   AuthUser,
@@ -15,7 +17,13 @@ import type {
 
 const TOKEN_KEY = 'connectx.auth.token';
 const SESSION_KEY = 'connectx.auth.session';
-const MOCK_FCM_TOKEN = 'a1b2c3d4e5f6g7h8_mock_fcm_token';
+
+const AUTH_API = {
+  REGISTER: '/api/v1/auth/register',
+  LOGIN: '/api/v1/auth/login',
+} as const;
+
+const mockFCMToken = 'mock-fcm-a1b2c3d4e5f6g7h8_mock_fcm_token';
 const MOCK_EMAIL_OTP = '671706';
 const OTP_LOCK_WINDOW_MS = 60 * 1000;
 const OTP_VALIDITY_MS = 10 * 60 * 1000;
@@ -179,12 +187,7 @@ async function persistSessionResult<TResponse>(
   };
 }
 
-export function getMockRegisterPayloadDefaults() {
-  return {
-    entity_type: null,
-    fcm_token: MOCK_FCM_TOKEN,
-  } as const;
-}
+
 
 export async function submitMockLoginPlaceholder(): Promise<LoginPlaceholderResponse> {
   return {
@@ -193,18 +196,38 @@ export async function submitMockLoginPlaceholder(): Promise<LoginPlaceholderResp
   };
 }
 
-export async function registerWithMock(
+export async function registerWithApi(
   payload: RegisterPayload
 ): Promise<SessionActionResult<OtpMessageResponse>> {
-  const session = createPendingEmailSession(payload.email.trim().toLowerCase());
-  const token = `mock-register-token-${Date.now()}`;
+  const response = await apiFetch<{
+    data: {
+      user: AuthUser;
+      token: string;
+    };
+    message: string;
+    next_step: string;
+    status: string;
+  }>(AUTH_API.REGISTER, {
+    method: 'POST',
+    body: {
+      ...payload,
+      fcm_token: mockFCMToken,
+    } as any,
+  });
+
+  console.log('response', response);
+
+  const user = response.data.user;
+  const token = response.data.token;
+  const session = createPendingEmailSession(user.email);
+  session.user = user;
 
   await persistAuthSession(session, token);
 
   return {
     response: {
       data: [],
-      message: 'Account created. Continue with email verification.',
+      message: response.message,
       next_step: 'NEED_EMAIL_VERIFICATION',
       status: 'success',
     },
@@ -312,11 +335,11 @@ export async function verifyEmailOtpWithMock(
     emailOtpResendAvailableAt: session.emailOtpResendAvailableAt,
     user: session.user
       ? {
-          ...session.user,
-          email_verified_at: verifiedAt,
-          is_active: false,
-          registration_step: 3,
-        }
+        ...session.user,
+        email_verified_at: verifiedAt,
+        is_active: false,
+        registration_step: 3,
+      }
       : null,
   };
 

@@ -2,19 +2,19 @@ import React from 'react';
 
 import { configureApiClient } from '@shared/services/api';
 
+import { isAuthBypassEnabled } from '../config/auth-config';
 import {
   clearPersistedAuth,
   enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
-  registerWithMock,
+  registerWithApi,
   resendEmailOtpWithMock,
   sendEmailOtpWithMock,
   submitMockLoginPlaceholder,
   verifyEmailOtpWithMock,
 } from '../services/auth-service';
 import { signInWithGoogleToken } from '../services/google-auth-service';
-import { isAuthBypassEnabled } from '../config/auth-config';
 import type {
   AuthPhase,
   AuthSession,
@@ -30,7 +30,7 @@ type AuthContextValue = {
   isAuthBypassEnabled: boolean;
   session: AuthSession | null;
   enterWithDevBypass: () => Promise<void>;
-  register: (payload: RegisterPayload) => ReturnType<typeof registerWithMock>;
+  register: (payload: RegisterPayload) => ReturnType<typeof registerWithApi>;
   resendEmailOtp: () => ReturnType<typeof resendEmailOtpWithMock>;
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpWithMock>;
   signInWithGoogle: () => Promise<GoogleAuthResult>;
@@ -127,7 +127,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const register = React.useCallback(
     async (payload: RegisterPayload) => {
-      const result = await registerWithMock(payload);
+      console.log('registering', payload);
+      const result = await registerWithApi(payload);
       setSession(result.session);
       setAuthPhase(result.session.authPhase);
       return result;

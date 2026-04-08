@@ -3,27 +3,14 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
+import { ApiError } from '@shared/services/api';
 
 import { useAuth } from '../hooks/use-auth';
-import { getMockRegisterPayloadDefaults } from '../services/auth-service';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 import { getEmailError, getPasswordError } from '../utils/auth-validation';
 import { AuthShell } from './auth-shell';
 
-const registerHighlights = [
-  {
-    description: 'The register payload already includes the mock `fcm_token` and `entity_type: null` defaults.',
-    title: 'Contract-shaped',
-  },
-  {
-    description: 'Account creation routes directly into email verification instead of dropping the user cold.',
-    title: 'Guided next step',
-  },
-  {
-    description: 'Validation lives on-device so obvious mistakes are caught before network wiring exists.',
-    title: 'Low-friction validation',
-  },
-] as const;
+
 
 export function RegisterScreen() {
   const router = useRouter();
@@ -49,17 +36,13 @@ export function RegisterScreen() {
     <>
       <Stack.Screen options={{ headerShown: false, title: 'Register' }} />
       <AuthShell
-        description="Create the account shell now, then continue straight into the mocked email OTP flow."
-        highlights={registerHighlights}
         pill="Create Account"
-        title="Start your ConnectX access">
+        title="Buat akun ConnectX">
         <View className="gap-4">
           <View className="gap-2">
-            <AppText tone="muted" variant="label">Registration</AppText>
-            <AppText variant="title">Set up your email access.</AppText>
+            <AppText variant="title">Daftar Akun</AppText>
             <AppText tone="muted">
-              This screen already follows the contract shape you shared, including password
-              confirmation and the email verification handoff.
+              Masukkan email dan password untuk membuat akun baru.
             </AppText>
           </View>
 
@@ -94,6 +77,7 @@ export function RegisterScreen() {
             }}
             placeholder="Use at least 8 characters"
             secureTextEntry
+            textContentType="none"
             value={password}
           />
 
@@ -111,13 +95,13 @@ export function RegisterScreen() {
             }}
             placeholder="Repeat your password"
             secureTextEntry
+            textContentType="none"
             value={passwordConfirmation}
           />
 
           <AppButton
-            detail="Creates the account shell, then opens email verification"
             disabled={isSubmitting}
-            label={isSubmitting ? 'Creating account...' : 'Create Account'}
+            label={isSubmitting ? 'Membuat akun...' : 'Buat Akun'}
             onPress={async () => {
               const nextEmailError = getEmailError(email);
               const nextPasswordError = getPasswordError(password);
@@ -136,15 +120,44 @@ export function RegisterScreen() {
               setIsSubmitting(true);
 
               try {
-                const payloadDefaults = getMockRegisterPayloadDefaults();
-
                 await register({
                   email,
                   password,
                   password_confirmation: passwordConfirmation,
-                  ...payloadDefaults,
+                  entity_type: null,
+                  fcm_token: '',
                 });
                 router.replace('/verify-email');
+              } catch (error: unknown) {
+                if (error instanceof ApiError && error.payload) {
+                  const payload = error.payload as {
+                    message?: string;
+                    errors?: {
+                      email?: string[];
+                      password?: string[];
+                      password_confirmation?: string[];
+                    };
+                  };
+                  const fieldErrors = payload.errors;
+
+                  if (fieldErrors?.email?.[0]) {
+                    setEmailError(fieldErrors.email[0]);
+                  }
+                  if (fieldErrors?.password?.[0]) {
+                    setPasswordError(fieldErrors.password[0]);
+                  }
+                  if (fieldErrors?.password_confirmation?.[0]) {
+                    setPasswordConfirmationError(fieldErrors.password_confirmation[0]);
+                  }
+
+                  if (!fieldErrors) {
+                    setStatusMessage(payload.message ?? error.message);
+                  }
+                } else {
+                  setStatusMessage(
+                    error instanceof Error ? error.message : 'Gagal membuat akun. Silakan coba lagi.'
+                  );
+                }
               } finally {
                 setIsSubmitting(false);
               }
@@ -159,8 +172,7 @@ export function RegisterScreen() {
           ) : null}
 
           <AppButton
-            detail="Back to the sign-in screen"
-            label="Back to Login"
+            label="Kembali ke Login"
             onPress={() => {
               router.replace('/login');
             }}

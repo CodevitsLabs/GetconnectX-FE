@@ -92,6 +92,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   try {
+    console.log('apiFetch', buildApiUrl(path), init);
     const response = await fetch(buildApiUrl(path), {
       ...init,
       body,
