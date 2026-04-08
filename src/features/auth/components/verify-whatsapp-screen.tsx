@@ -1,6 +1,6 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { View, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, KeyboardAvoidingView, Platform, TouchableOpacity, Keyboard, Pressable } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -133,6 +133,7 @@ export function VerifyWhatsappScreen() {
       className="flex-1 bg-canvas"
     >
       <Stack.Screen options={{ headerShown: false }} />
+      <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
       <View className="flex-1 px-5 pt-16 pb-8">
         
         {/* Back Button omitted intentionally per user request */}
@@ -182,6 +183,7 @@ export function VerifyWhatsappScreen() {
           </View>
         </View>
       </View>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }

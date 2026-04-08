@@ -1,6 +1,6 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, TextInput, TouchableOpacity, View, Keyboard } from 'react-native';
 
 import { AppButton, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -146,6 +146,7 @@ export function VerifyOtpScreen() {
       className="flex-1 bg-canvas"
     >
       <Stack.Screen options={{ headerShown: false }} />
+      <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
       <View className="flex-1 px-5 pt-16 pb-8">
 
 
@@ -254,6 +255,7 @@ export function VerifyOtpScreen() {
           </View>
         </View>
       </View>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }
