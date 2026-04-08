@@ -1,6 +1,7 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, TextInput, TouchableOpacity, View, Keyboard } from 'react-native';
+import { Image } from 'expo-image';
 
 import { AppButton, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -149,7 +150,15 @@ export function VerifyOtpScreen() {
       <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
       <View className="flex-1 px-5 pt-16 pb-8">
 
-
+        <TouchableOpacity 
+          onPress={() => router.replace({ pathname: '/verify-whatsapp', params: { reset: 'true' } })}
+          className="h-12 w-12 items-center justify-center rounded-[16px] bg-surface-soft border border-border"
+        >
+          <Image
+            source="sf:arrow.left"
+            style={{ width: 22, height: 22, tintColor: '#fff' }}
+          />
+        </TouchableOpacity>
 
         <View className="flex-1 pt-8">
           <View className="gap-2 shrink-0">

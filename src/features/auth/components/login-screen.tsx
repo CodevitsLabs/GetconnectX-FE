@@ -1,7 +1,7 @@
+import { AntDesign } from '@expo/vector-icons';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Pressable, View, KeyboardAvoidingView, Platform, Keyboard, TouchableOpacity } from 'react-native';
-import { AntDesign } from '@expo/vector-icons';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, TouchableOpacity, View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -18,7 +18,6 @@ export function LoginScreen() {
   const [password, setPassword] = React.useState('');
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [passwordError, setPasswordError] = React.useState<string | null>(null);
-  const [googlePayloadPreview, setGooglePayloadPreview] = React.useState<string | null>(null);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [statusTone, setStatusTone] = React.useState<'danger' | 'signal'>('danger');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -39,7 +38,6 @@ export function LoginScreen() {
 
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
-    setGooglePayloadPreview(null);
     setStatusMessage(null);
 
     if (nextEmailError || nextPasswordError || isSubmitting) {
@@ -102,7 +100,6 @@ export function LoginScreen() {
     setEmailError(null);
     setPasswordError(null);
     setStatusMessage(null);
-    setGooglePayloadPreview(null);
     setIsGoogleSubmitting(true);
 
     try {
@@ -116,7 +113,6 @@ export function LoginScreen() {
 
       router.replace(getRouteForAuthPhase(result.session.authPhase));
     } catch (error) {
-      setGooglePayloadPreview(null);
       setStatusTone('danger');
       setStatusMessage(
         error instanceof Error
@@ -129,14 +125,14 @@ export function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-canvas"
     >
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
         <View className="flex-1 px-5 pt-20 pb-8">
-          
+
           <View className="flex-1 pt-8">
             <View className="gap-2 shrink-0">
               <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
@@ -187,7 +183,6 @@ export function LoginScreen() {
               <TouchableOpacity
                 className="self-end"
                 onPress={() => {
-                  setGooglePayloadPreview(null);
                   setStatusTone('signal');
                   setStatusMessage('Forgot password flow is not connected yet.');
                 }}>

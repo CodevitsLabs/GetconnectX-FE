@@ -1,4 +1,4 @@
-import { Redirect, Stack, useRouter } from 'expo-router';
+import { Redirect, Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View, KeyboardAvoidingView, Platform, TouchableOpacity, Keyboard, Pressable } from 'react-native';
 
@@ -73,12 +73,14 @@ export function VerifyWhatsappScreen() {
     setWhatsappNumber(persistedWhatsappNumber);
   }, [persistedWhatsappNumber]);
 
+  const params = useLocalSearchParams<{ reset?: string }>();
+
   React.useEffect(() => {
-    if (hasPersistedOtpState) {
+    if (hasPersistedOtpState && params.reset !== 'true') {
         // Automatically route to otp screen if we already had a pending otp
         router.replace('/verify-otp');
     }
-  }, [hasPersistedOtpState]);
+  }, [hasPersistedOtpState, params.reset]);
 
   if (!isHydrated) {
     return null;
