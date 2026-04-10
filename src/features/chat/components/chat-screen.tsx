@@ -180,7 +180,7 @@ export function ChatListScreen() {
                 ✉️
               </AppText>
               <AppText align="center" tone="muted">
-                No conversations yet. Tap "Reset demo" to populate.
+                No conversations yet. Tap &quot;Reset demo&quot; to populate.
               </AppText>
             </View>
           ) : null}

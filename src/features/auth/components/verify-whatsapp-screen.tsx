@@ -151,7 +151,7 @@ export function VerifyWhatsappScreen() {
               Enter WhatsApp Number
             </AppText>
             <AppText tone="muted" className="text-base">
-              We'll send a 6-digit code to verify your identity.
+              We&apos;ll send a 6-digit code to verify your identity.
             </AppText>
           </View>
 

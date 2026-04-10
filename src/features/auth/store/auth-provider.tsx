@@ -13,6 +13,7 @@ import {
   registerWithApi,
   resendWhatsappOtpWithApi,
   resendEmailOtpWithMock,
+  replaceStoredSession,
   sendWhatsappOtpWithApi,
   sendEmailOtpWithMock,
   verifyEmailOtpWithMock,
@@ -31,6 +32,8 @@ import type {
 
 type AuthContextValue = {
   authPhase: AuthPhase;
+  completeOnboarding: () => Promise<void>;
+  enterPendingOnboarding: () => Promise<void>;
   isHydrated: boolean;
   isAuthBypassEnabled: boolean;
   session: AuthSession | null;
@@ -60,6 +63,53 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     setAuthPhase('signed_out');
     setSession(null);
   }, []);
+
+  const enterPendingOnboarding = React.useCallback(async () => {
+    if (!session) {
+      throw new Error('No auth session is available for onboarding.');
+    }
+
+    const nextSession: AuthSession = {
+      ...session,
+      authPhase: 'pending_onboarding',
+      onboardingCompletedAt: session.onboardingCompletedAt ?? null,
+      user: session.user
+        ? {
+            ...session.user,
+            is_active: false,
+            registration_step: Math.max(session.user.registration_step, 4),
+          }
+        : null,
+    };
+
+    await replaceStoredSession(nextSession);
+    setSession(nextSession);
+    setAuthPhase(nextSession.authPhase);
+  }, [session]);
+
+  const completeOnboarding = React.useCallback(async () => {
+    if (!session) {
+      return;
+    }
+
+    const completedAt = new Date().toISOString();
+    const nextSession: AuthSession = {
+      ...session,
+      authPhase: 'authenticated',
+      onboardingCompletedAt: completedAt,
+      user: session.user
+        ? {
+            ...session.user,
+            is_active: true,
+            registration_step: Math.max(session.user.registration_step, 5),
+          }
+        : null,
+    };
+
+    await replaceStoredSession(nextSession);
+    setSession(nextSession);
+    setAuthPhase(nextSession.authPhase);
+  }, [session]);
 
   React.useEffect(() => {
     let isActive = true;
@@ -185,7 +235,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const value = React.useMemo<AuthContextValue>(
     () => ({
       authPhase,
+      completeOnboarding,
       enterWithDevBypass,
+      enterPendingOnboarding,
       isHydrated,
       isAuthBypassEnabled: authBypassEnabled,
       login,
@@ -203,7 +255,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     [
       authPhase,
       authBypassEnabled,
+      completeOnboarding,
       enterWithDevBypass,
+      enterPendingOnboarding,
       isHydrated,
       login,
       register,

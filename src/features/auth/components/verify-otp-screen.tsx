@@ -36,6 +36,7 @@ export function VerifyOtpScreen() {
   const router = useRouter();
   const {
     authPhase,
+    enterPendingOnboarding,
     isHydrated,
     resendWhatsappOtp,
     session,
@@ -126,7 +127,8 @@ export function VerifyOtpScreen() {
         return;
       }
 
-      router.replace('/(tabs)');
+      await enterPendingOnboarding();
+      router.replace('/onboarding');
     } catch (error: unknown) {
       setStatusTone('danger');
 
@@ -166,7 +168,7 @@ export function VerifyOtpScreen() {
               Verify account with OTP
             </AppText>
             <AppText tone="muted" className="text-base">
-              We've sent 6 code to {maskWhatsappNumber(whatsappNumber)}
+              We&apos;ve sent a 6-digit code to {maskWhatsappNumber(whatsappNumber)}
             </AppText>
           </View>
 

@@ -1,7 +1,7 @@
 import { AntDesign } from '@expo/vector-icons';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Keyboard, Platform, Pressable, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, TouchableOpacity, View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -53,13 +53,7 @@ export function LoginScreen() {
         fcm_token: '',
       });
 
-      if (result.session.authPhase === 'authenticated') {
-        router.replace('/(tabs)');
-      } else if (result.session.authPhase === 'pending_email_verification') {
-        router.replace('/verify-email');
-      } else if (result.session.authPhase === 'pending_whatsapp_verification') {
-        router.replace('/verify-whatsapp');
-      }
+      router.replace(getRouteForAuthPhase(result.session.authPhase));
     } catch (error: unknown) {
       if (error instanceof ApiError && error.payload) {
         const payload = error.payload as {
@@ -204,6 +198,20 @@ export function LoginScreen() {
                 className="w-full bg-[#0066FF] rounded-[16px] border-none"
               />
 
+              <AppButton
+                disabled={isSubmitting || isGoogleSubmitting}
+                label="Preview onboarding"
+                onPress={() => {
+                  router.push({
+                    pathname: '/onboarding',
+                    params: { mode: 'preview' },
+                  });
+                }}
+                size="lg"
+                variant="secondary"
+                className="w-full rounded-[16px] border-border-strong bg-surface"
+              />
+
               {process.env.EXPO_OS !== 'web' && (
                 <>
                   <View className="flex-row items-center gap-4 py-2 opacity-50">
@@ -234,7 +242,7 @@ export function LoginScreen() {
               )}
 
               <View className="flex-row items-center justify-center gap-2 mt-4">
-                <AppText tone="muted">Don't have an account?</AppText>
+                <AppText tone="muted">Don&apos;t have an account?</AppText>
                 <TouchableOpacity onPress={() => router.push('/register')}>
                   <AppText className="text-[#0066FF] font-medium">Sign up</AppText>
                 </TouchableOpacity>

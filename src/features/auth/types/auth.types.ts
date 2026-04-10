@@ -4,6 +4,7 @@ export type AuthPhase =
   | 'signed_out'
   | 'pending_email_verification'
   | 'pending_whatsapp_verification'
+  | 'pending_onboarding'
   | 'authenticated';
 
 export type AuthNextStep =
@@ -33,6 +34,7 @@ export type AuthSession = {
   emailOtpResendAvailableAt?: string | null;
   isDevelopmentBypass?: boolean;
   method: AuthMethod;
+  onboardingCompletedAt?: string | null;
   pendingWhatsappNumber?: string | null;
   user: AuthUser | null;
   whatsappOtpLastSentAt?: string | null;

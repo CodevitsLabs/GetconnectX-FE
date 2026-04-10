@@ -42,6 +42,7 @@ const AUTH_PHASES = new Set([
   'signed_out',
   'pending_email_verification',
   'pending_whatsapp_verification',
+  'pending_onboarding',
   'authenticated',
 ]);
 const AUTH_METHODS = new Set(['email', 'google', 'apple', 'developer-bypass']);
@@ -179,6 +180,7 @@ function createPendingEmailSession(email: string): AuthSession {
     emailOtpLastSentAt: null,
     emailOtpResendAvailableAt: null,
     method: 'email',
+    onboardingCompletedAt: null,
     pendingWhatsappNumber: null,
     user: createPendingEmailUser(email),
     whatsappOtpLastSentAt: null,
@@ -233,6 +235,7 @@ function createAuthSession({
     emailOtpLastSentAt: null,
     emailOtpResendAvailableAt: null,
     method,
+    onboardingCompletedAt: null,
     pendingWhatsappNumber: null,
     user: {
       ...user,
@@ -526,6 +529,7 @@ export async function verifyEmailOtpWithMock(
     emailOtpExpiresAt: null,
     emailOtpLastSentAt: session.emailOtpLastSentAt,
     emailOtpResendAvailableAt: session.emailOtpResendAvailableAt,
+    onboardingCompletedAt: session.onboardingCompletedAt ?? null,
     pendingWhatsappNumber: session.user?.whatsapp_number ?? session.pendingWhatsappNumber ?? null,
     user: session.user
       ? {
@@ -640,6 +644,7 @@ export async function enterWithDevBypassSession() {
     emailOtpResendAvailableAt: null,
     isDevelopmentBypass: true,
     method: 'developer-bypass',
+    onboardingCompletedAt: verifiedAt,
     pendingWhatsappNumber: null,
     user: {
       id: 'dev-bypass-user',
