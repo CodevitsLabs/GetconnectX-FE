@@ -1,5 +1,5 @@
-import 'react-native-url-polyfill/auto';
 import 'expo-sqlite/localStorage/install';
+import 'react-native-url-polyfill/auto';
 
 import { createClient, type Session } from '@supabase/supabase-js';
 
@@ -30,6 +30,41 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+  },
+  realtime: {
+    heartbeatCallback: (status, latency) => {
+      if (!__DEV__) {
+        return;
+      }
+
+      console.log('[supabase:realtime-heartbeat]', {
+        latency: latency ?? null,
+        status,
+      });
+    },
+    logger: (kind, msg, data) => {
+      if (!__DEV__) {
+        return;
+      }
+
+      const normalizedMessage = `${kind} ${msg}`.toLowerCase();
+      const shouldLog =
+        kind === 'error' ||
+        normalizedMessage.includes('transport') ||
+        normalizedMessage.includes('postgres_changes') ||
+        normalizedMessage.includes('presence') ||
+        normalizedMessage.includes('phx_reply');
+
+      if (!shouldLog) {
+        return;
+      }
+
+      console.log('[supabase:realtime-log]', {
+        data: data ?? null,
+        kind,
+        msg,
+      });
+    },
   },
 });
 
