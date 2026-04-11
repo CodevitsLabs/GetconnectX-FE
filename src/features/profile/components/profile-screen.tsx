@@ -31,7 +31,7 @@ export function ProfileScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Account' }} />
+      <Stack.Screen options={{ title: '' }} />
       <ScrollView
         className="flex-1 bg-canvas"
         contentContainerClassName="gap-6 px-5 pt-4 pb-24"

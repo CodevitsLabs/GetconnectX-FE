@@ -1,5 +1,4 @@
 import { Redirect, Tabs } from 'expo-router';
-import { Platform } from 'react-native';
 
 import { canAccessProtectedRoutes, getRouteForAuthPhase, useAuth } from '@features/auth';
 import { AppTabBar } from '@shared/components';
@@ -24,38 +23,31 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Overview',
+          title: 'Home',
         }}
       />
       <Tabs.Screen
         name="matches"
         options={{
-          title: 'Pipeline',
-        }}
-      />
-      <Tabs.Screen
-        name="products"
-        options={{
-          title: 'Market',
+          title: '',
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Inbox',
+          title: '',
         }}
       />
       <Tabs.Screen
         name="team"
         options={{
-          title: 'Team',
-          href: Platform.OS === 'android' ? null : '/(tabs)/team',
+          title: '',
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Account',
+          title: '',
         }}
       />
     </Tabs>

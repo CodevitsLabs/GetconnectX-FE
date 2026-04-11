@@ -54,13 +54,13 @@ export function HomeScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Overview' }} />
+      <Stack.Screen options={{ title: '' }} />
       <ScrollView
         className="flex-1 bg-canvas"
         contentContainerClassName="gap-6 px-5 pt-4 pb-24"
         contentInsetAdjustmentBehavior="automatic">
         <View className="gap-3">
-          <AppPill className="self-start" label="Overview" tone="accent" />
+          <AppPill className="self-start" label="Home" tone="accent" />
           <AppText variant="hero">Hi, {session.displayName.split(' ')[0]}.</AppText>
           <AppText tone="muted">
             Your highest-signal actions, metrics, and work queues are all visible from here.

@@ -1,18 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { View, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Pressable, View } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from './app-text';
 
-const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-  index: 'home',
-  matches: 'favorite',
-  products: 'shopping-bag',
-  chat: 'chat',
-  team: 'groups',
-  profile: 'account-circle',
+const ACTIVE_COLOR = '#f59e0b'; // Signal/Orange color from design
+const INACTIVE_COLOR = '#667085';
+
+const ICONS: Record<string, { outline: keyof typeof Ionicons.glyphMap; solid: keyof typeof Ionicons.glyphMap }> = {
+  index: { outline: 'home-outline', solid: 'home' },
+  matches: { outline: 'heart-outline', solid: 'heart' },
+  chat: { outline: 'chatbubble-outline', solid: 'chatbubble' },
+  team: { outline: 'people-outline', solid: 'people' },
+  profile: { outline: 'person-outline', solid: 'person' },
 };
 
 function TabBarItem({
@@ -26,20 +28,21 @@ function TabBarItem({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const iconName = ICONS[route.name] || 'circle';
+  const iconConfig = ICONS[route.name] || { outline: 'ellipse-outline', solid: 'ellipse' };
+  const iconName = isFocused ? iconConfig.solid : iconConfig.outline;
   const label =
     options.tabBarLabel !== undefined
       ? options.tabBarLabel
       : options.title !== undefined
-      ? options.title
-      : route.name;
+        ? options.title
+        : route.name;
 
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { scale: withSpring(isFocused ? 1.15 : 1, { damping: 12, stiffness: 200 }) },
-        { translateY: withTiming(isFocused ? -2 : 0, { duration: 150 }) },
+        { scale: withSpring(isFocused ? 1.1 : 1, { damping: 12, stiffness: 200 }) },
       ],
+      opacity: withTiming(isFocused ? 1 : 0.8, { duration: 200 }),
     };
   });
 
@@ -51,23 +54,23 @@ function TabBarItem({
   });
 
   return (
-    <Pressable onPress={onPress} className="flex-1 items-center justify-center gap-1.5 pt-2">
+    <Pressable onPress={onPress} className="flex-1 items-center justify-center gap-1 pt-2">
       <Animated.View style={animatedIconStyle} className="items-center justify-center">
-        <MaterialIcons name={iconName} size={24} color={isFocused ? '#f5f7fa' : '#667085'} />
-        <Animated.View
-          style={animatedIndicatorStyle}
-          className="absolute -bottom-4 h-1 w-1 rounded-full bg-accent"
-        />
+        <Ionicons name={iconName} size={24} color={isFocused ? ACTIVE_COLOR : INACTIVE_COLOR} />
       </Animated.View>
       <AppText
         variant="label"
         style={{
-          color: isFocused ? '#f5f7fa' : '#667085',
+          color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR,
           fontSize: 10,
           fontWeight: isFocused ? '600' : '500',
         }}>
         {String(label)}
       </AppText>
+      <Animated.View
+        className="h-1 w-1 rounded-full"
+        style={[{ backgroundColor: ACTIVE_COLOR }, animatedIndicatorStyle]}
+      />
     </Pressable>
   );
 }
