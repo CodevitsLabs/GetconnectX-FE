@@ -16,14 +16,14 @@ function parseBooleanEnv(value: string | undefined) {
   return null;
 }
 
-function getRequiredEnv(name: string, description: string) {
-  const value = process.env[name]?.trim();
+function getRequiredEnv(value: string | undefined, name: string, description: string) {
+  const normalizedValue = value?.trim();
 
-  if (!value) {
+  if (!normalizedValue) {
     throw new Error(`Missing ${name}. Set it before attempting ${description}.`);
   }
 
-  return value;
+  return normalizedValue;
 }
 
 export function isAuthBypassEnabled() {
@@ -39,14 +39,17 @@ export function isAuthBypassEnabled() {
 export function getGoogleAuthConfig() {
   return {
     iosClientId: getRequiredEnv(
+      process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
       'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID',
       'Google Sign-In on iOS'
     ),
     iosUrlScheme: getRequiredEnv(
+      process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME,
       'EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME',
       'the native Google Sign-In configuration'
     ),
     webClientId: getRequiredEnv(
+      process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID',
       'Google Sign-In token exchange'
     ),
@@ -56,9 +59,14 @@ export function getGoogleAuthConfig() {
 export function getSupabaseConfig() {
   return {
     anonKey: getRequiredEnv(
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       'EXPO_PUBLIC_SUPABASE_ANON_KEY',
       'Supabase-backed auth or chat'
     ),
-    url: getRequiredEnv('EXPO_PUBLIC_SUPABASE_URL', 'Supabase-backed auth or chat'),
+    url: getRequiredEnv(
+      process.env.EXPO_PUBLIC_SUPABASE_URL,
+      'EXPO_PUBLIC_SUPABASE_URL',
+      'Supabase-backed auth or chat'
+    ),
   };
 }

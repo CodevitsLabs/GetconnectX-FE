@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { AuthProvider } from '@features/auth';
+import { RevenueCatProvider } from '@features/revenuecat';
 import { useColorScheme } from '@shared/hooks/use-color-scheme';
 import { createQueryClient } from '@shared/services/api';
 import { NavigationThemes } from '@shared/theme';
@@ -25,19 +26,27 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ThemeProvider value={NavigationThemes[colorScheme]}>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false, gestureEnabled: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false, gestureEnabled: false }} />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: 'modal', title: 'Design Principles' }}
-              />
-              <Stack.Screen name="conversation" options={{ headerShown: false }} />
-            </Stack>
-            <StatusBar style="light" />
-          </ThemeProvider>
+          <RevenueCatProvider>
+            <ThemeProvider value={NavigationThemes[colorScheme]}>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(auth)"
+                  options={{ headerShown: false, gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{ headerShown: false, gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{ presentation: 'modal', title: 'Design Principles' }}
+                />
+                <Stack.Screen name="conversation" options={{ headerShown: false }} />
+              </Stack>
+              <StatusBar style="light" />
+            </ThemeProvider>
+          </RevenueCatProvider>
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

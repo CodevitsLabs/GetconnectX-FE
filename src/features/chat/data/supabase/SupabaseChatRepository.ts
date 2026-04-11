@@ -36,6 +36,18 @@ type RoomChannelState = {
   roomId: string;
 };
 
+type SummaryChannelState = {
+  channel: RealtimeChannel;
+  handlers: Set<ConversationSummaryHandlers>;
+  initialized: boolean;
+  initializationError: Error | null;
+  initializePromise: Promise<void> | null;
+  readyPromise: Promise<void>;
+  rejectReady: (error: Error) => void;
+  resolveReady: () => void;
+  userId: string;
+};
+
 function createDeferred() {
   let resolve: () => void = () => {};
   let reject: (error: Error) => void = () => {};
@@ -74,6 +86,7 @@ async function getCurrentIdentity() {
 
 class SupabaseChatRepository implements ChatRepository {
   private roomStates = new Map<string, RoomChannelState>();
+  private summaryStates = new Map<string, SummaryChannelState>();
 
   async getConversationSummaries(): Promise<ChatRoom[]> {
     const { userId } = await getCurrentIdentity();
@@ -160,6 +173,7 @@ class SupabaseChatRepository implements ChatRepository {
 
   subscribeToConversationSummaries(handlers: ConversationSummaryHandlers) {
     let isActive = true;
+    let userIdForCleanup: string | null = null;
 
     void getCurrentIdentity()
       .then(({ userId }) => {
@@ -167,61 +181,13 @@ class SupabaseChatRepository implements ChatRepository {
           return;
         }
 
-        const channel = supabase.channel(`conversation-summaries:${userId}`);
+        userIdForCleanup = userId;
+        const summaryState = this.getOrCreateConversationSummaryState(userId);
+        summaryState.handlers.add(handlers);
 
-        const unsubscribe = () => {
-          isActive = false;
-          void supabase.removeChannel(channel);
-        };
-
-        channel.on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'conversation_summaries',
-            filter: `user_id=eq.${userId}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'DELETE') {
-              const oldRow = payload.old as Partial<ConversationSummaryRow>;
-
-              if (typeof oldRow.conversation_id === 'string') {
-                handlers.onDelete?.(oldRow.conversation_id);
-              }
-
-              return;
-            }
-
-            const row = payload.new as ConversationSummaryRow;
-            handlers.onUpsert?.(mapConversationSummaryRow(row));
-          }
-        );
-
-        channel.subscribe((status, error) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            const details =
-              error instanceof Error
-                ? error.message
-                : typeof error === 'string'
-                  ? error
-                  : null;
-
-            handlers.onError?.(
-              new Error(
-                details
-                  ? `Conversation summaries subscription failed: ${details}`
-                  : 'Conversation summaries subscription failed.'
-              )
-            );
-          }
-        });
-
-        const previousCleanup = cleanup;
-        cleanup = () => {
-          previousCleanup();
-          unsubscribe();
-        };
+        if (summaryState.initializationError) {
+          handlers.onError?.(summaryState.initializationError);
+        }
       })
       .catch((error) => {
         handlers.onError?.(
@@ -237,6 +203,19 @@ class SupabaseChatRepository implements ChatRepository {
 
     return () => {
       cleanup();
+
+      if (!userIdForCleanup) {
+        return;
+      }
+
+      const summaryState = this.summaryStates.get(userIdForCleanup);
+
+      if (!summaryState) {
+        return;
+      }
+
+      summaryState.handlers.delete(handlers);
+      this.cleanupConversationSummaryState(userIdForCleanup);
     };
   }
 
@@ -380,6 +359,133 @@ class SupabaseChatRepository implements ChatRepository {
     void roomState.readyPromise.catch(() => undefined);
 
     return roomState;
+  }
+
+  private cleanupConversationSummaryState(userId: string) {
+    const summaryState = this.summaryStates.get(userId);
+
+    if (!summaryState) {
+      return;
+    }
+
+    if (summaryState.handlers.size) {
+      return;
+    }
+
+    void supabase.removeChannel(summaryState.channel);
+    this.summaryStates.delete(userId);
+  }
+
+  private getOrCreateConversationSummaryState(userId: string) {
+    const existingState = this.summaryStates.get(userId);
+
+    if (existingState) {
+      return existingState;
+    }
+
+    const deferred = createDeferred();
+    const channelName = `conversation-summaries:${userId}`;
+    const staleChannels = supabase
+      .getChannels()
+      .filter((channel) => channel.topic === `realtime:${channelName}`);
+
+    for (const staleChannel of staleChannels) {
+      void supabase.removeChannel(staleChannel);
+    }
+
+    const channel = supabase.channel(channelName);
+    const summaryState: SummaryChannelState = {
+      channel,
+      handlers: new Set(),
+      initialized: false,
+      initializationError: null,
+      initializePromise: null,
+      readyPromise: deferred.promise,
+      rejectReady: deferred.reject,
+      resolveReady: deferred.resolve,
+      userId,
+    };
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'conversation_summaries',
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const oldRow = payload.old as Partial<ConversationSummaryRow>;
+
+          if (typeof oldRow.conversation_id === 'string') {
+            for (const handlers of summaryState.handlers) {
+              handlers.onDelete?.(oldRow.conversation_id);
+            }
+          }
+
+          return;
+        }
+
+        const row = payload.new as ConversationSummaryRow;
+        const conversation = mapConversationSummaryRow(row);
+
+        for (const handlers of summaryState.handlers) {
+          handlers.onUpsert?.(conversation);
+        }
+      }
+    );
+
+    this.summaryStates.set(userId, summaryState);
+    summaryState.initializePromise = this.initializeConversationSummaryState(summaryState);
+    void summaryState.readyPromise.catch(() => undefined);
+
+    return summaryState;
+  }
+
+  private async initializeConversationSummaryState(summaryState: SummaryChannelState) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        summaryState.channel.subscribe((status, error) => {
+          if (status === 'SUBSCRIBED') {
+            resolve();
+            return;
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            const details =
+              error instanceof Error
+                ? error.message
+                : typeof error === 'string'
+                  ? error
+                  : null;
+
+            reject(
+              new Error(
+                details
+                  ? `Conversation summaries subscription failed: ${details}`
+                  : 'Conversation summaries subscription failed.'
+              )
+            );
+          }
+        });
+      });
+
+      summaryState.initialized = true;
+      summaryState.resolveReady();
+    } catch (error) {
+      const nextError =
+        error instanceof Error
+          ? error
+          : new Error('Failed to initialize conversation summaries subscription.');
+
+      summaryState.initializationError = nextError;
+      summaryState.rejectReady(nextError);
+
+      for (const handlers of summaryState.handlers) {
+        handlers.onError?.(nextError);
+      }
+    }
   }
 
   private async initializeRoomState(roomState: RoomChannelState) {

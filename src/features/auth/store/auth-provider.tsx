@@ -377,7 +377,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 }
 
 export function useAuthContext() {
-  const value = React.use(AuthContext);
+  const value = React.useContext(AuthContext);
 
   if (!value) {
     throw new Error('useAuth must be used inside AuthProvider');
