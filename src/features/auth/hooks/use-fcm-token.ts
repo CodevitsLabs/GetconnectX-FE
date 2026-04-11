@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { getApp } from '@react-native-firebase/app';
+import {
+  AuthorizationStatus,
+  getMessaging,
+  getToken,
+  onTokenRefresh,
+  registerDeviceForRemoteMessages,
+  requestPermission,
+} from '@react-native-firebase/messaging';
 
 export function useFcmToken() {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -18,27 +27,53 @@ export function useFcmToken() {
     let isMounted = true;
     let unsubscribeTokenRefresh: (() => void) | undefined;
 
+    const requestAndroidNotificationPermission = async () => {
+      if (Platform.OS !== 'android' || Platform.Version < 33) {
+        return true;
+      }
+
+      const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+      const isGranted = await PermissionsAndroid.check(permission);
+
+      if (isGranted) {
+        return true;
+      }
+
+      const result = await PermissionsAndroid.request(permission);
+      return result === PermissionsAndroid.RESULTS.GRANTED;
+    };
+
     const fetchFcmToken = async () => {
       try {
-        const messagingModule = await import('@react-native-firebase/messaging');
-        const messaging = messagingModule.default;
-        const authStatus = await messaging().requestPermission();
+        const hasAndroidPermission = await requestAndroidNotificationPermission();
+
+        if (!hasAndroidPermission) {
+          console.info('Android notification permission was not granted.');
+          return;
+        }
+
+        const messaging = getMessaging(getApp());
+        const authStatus = await requestPermission(messaging);
         const hasPermission =
-          authStatus === messagingModule.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messagingModule.AuthorizationStatus.PROVISIONAL;
+          authStatus === AuthorizationStatus.AUTHORIZED ||
+          authStatus === AuthorizationStatus.PROVISIONAL;
 
         if (!hasPermission) {
           console.info('FCM permission was not granted.', { authStatus });
           return;
         }
 
-        const token = await messaging().getToken();
+        if (Platform.OS === 'ios') {
+          await registerDeviceForRemoteMessages(messaging);
+        }
+
+        const token = await getToken(messaging);
 
         if (isMounted) {
           setFcmToken(token);
         }
 
-        unsubscribeTokenRefresh = messaging().onTokenRefresh((nextToken) => {
+        unsubscribeTokenRefresh = onTokenRefresh(messaging, (nextToken) => {
           if (isMounted) {
             setFcmToken(nextToken);
           }

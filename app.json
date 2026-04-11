@@ -11,10 +11,23 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dwiki.connectx",
       "googleServicesFile": "./ios/GoogleService-Info.plist",
-      "appleTeamId": "6YQB49MLC8"
+      "appleTeamId": "6YQB49MLC8",
+      "entitlements": {
+        "aps-environment": "development"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "package": "com.dwiki.connectx",
+      "googleServicesFile": "./android/google-services.json",
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
