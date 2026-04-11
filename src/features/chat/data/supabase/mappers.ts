@@ -1,0 +1,43 @@
+import type { ChatMessage, ChatRoom, ChatRoomKind } from '../../domain/models';
+
+export type MessageRow = {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  client_id: string | null;
+  content: string;
+  created_at: string;
+};
+
+export type ConversationSummaryRow = {
+  conversation_id: string;
+  kind: ChatRoomKind;
+  last_message_at: string | null;
+  last_message_text: string | null;
+  title: string;
+  unread_count: number;
+  updated_at: string;
+};
+
+export function mapMessageRow(row: MessageRow): ChatMessage {
+  return {
+    id: row.id,
+    roomId: row.room_id,
+    senderId: row.sender_id,
+    content: row.content,
+    createdAt: row.created_at,
+    status: 'sent',
+    clientId: row.client_id,
+  };
+}
+
+export function mapConversationSummaryRow(row: ConversationSummaryRow): ChatRoom {
+  return {
+    id: row.conversation_id,
+    kind: row.kind,
+    lastMessageAt: row.last_message_at ?? row.updated_at,
+    preview: row.last_message_text ?? 'No messages yet',
+    title: row.title,
+    unreadCount: row.unread_count,
+  };
+}

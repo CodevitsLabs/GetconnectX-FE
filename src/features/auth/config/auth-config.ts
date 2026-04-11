@@ -52,3 +52,13 @@ export function getGoogleAuthConfig() {
     ),
   };
 }
+
+export function getSupabaseConfig() {
+  return {
+    anonKey: getRequiredEnv(
+      'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+      'Supabase-backed auth or chat'
+    ),
+    url: getRequiredEnv('EXPO_PUBLIC_SUPABASE_URL', 'Supabase-backed auth or chat'),
+  };
+}

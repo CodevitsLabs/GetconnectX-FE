@@ -66,6 +66,7 @@ export type GoogleAuthResult = {
   displayName: string;
   provider: 'google';
   accessToken: string;
+  idToken: string;
   fcmToken: string | null;
   userId: string;
 };

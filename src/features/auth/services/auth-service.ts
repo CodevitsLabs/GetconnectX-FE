@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
+import type { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
 
 import { ApiError, apiFetch } from '@shared/services/api';
+import { supabase } from '@shared/services/supabase/client';
 
 import type {
   AuthNextStep,
@@ -72,12 +74,23 @@ export type GoogleOAuthLoginPayload = {
   accessToken: string;
   displayName?: string | null;
   email?: string | null;
+  idToken: string;
 };
 
 export type GoogleOAuthVerifyResponse = AuthSuccessResponse & {
   data: AuthSuccessResponse['data'] & {
     oauth_provider: 'google';
   };
+};
+
+export type GoogleSupabaseLoginResponse = {
+  data: {
+    oauth_provider: 'google';
+    user: AuthUser;
+  };
+  message: string;
+  next_step: 'REGISTRATION_COMPLETE';
+  status: 'success';
 };
 
 export async function getStoredToken() {
@@ -246,6 +259,67 @@ function createAuthSession({
   };
 }
 
+function buildDisplayNameFromSupabaseUser(
+  user: SupabaseUser,
+  displayName?: string | null
+) {
+  const normalizedDisplayName =
+    displayName?.trim() ||
+    (typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+    (typeof user.user_metadata?.name === 'string' ? user.user_metadata.name.trim() : '');
+
+  if (normalizedDisplayName) {
+    return normalizedDisplayName;
+  }
+
+  return buildDisplayNameFromEmail(user.email?.trim().toLowerCase() ?? 'connectx-member');
+}
+
+export function createGoogleAuthSessionFromSupabaseUser(
+  user: SupabaseUser,
+  displayName?: string | null
+): AuthSession {
+  const normalizedEmail = user.email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error('Supabase Google login succeeded, but no email was returned.');
+  }
+
+  const now = new Date().toISOString();
+
+  return {
+    authPhase: 'authenticated',
+    displayName: buildDisplayNameFromSupabaseUser(user, displayName) || 'ConnectX Member',
+    email: normalizedEmail,
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: null,
+    emailOtpResendAvailableAt: null,
+    method: 'google',
+    onboardingCompletedAt: now,
+    pendingWhatsappNumber: null,
+    user: {
+      id: user.id,
+      entity_type: null,
+      email: normalizedEmail,
+      email_verified_at: user.email_confirmed_at ?? now,
+      whatsapp_number: null,
+      whatsapp_verified_at: null,
+      registration_step: 5,
+      is_active: true,
+    },
+    whatsappOtpLastSentAt: null,
+    whatsappOtpResendAvailableAt: null,
+  };
+}
+
+export function createGoogleAuthSessionFromSupabaseSession(
+  session: SupabaseSession,
+  displayName?: string | null
+) {
+  return createGoogleAuthSessionFromSupabaseUser(session.user, displayName);
+}
+
 async function requireStoredAuthState() {
   const [token, session] = await Promise.all([getStoredToken(), getStoredSession()]);
 
@@ -367,25 +441,40 @@ export async function loginWithApi(
   };
 }
 
-export async function loginWithGoogleApi(
+export async function loginWithGoogleSupabase(
   payload: GoogleOAuthLoginPayload
-): Promise<SessionActionResult<GoogleOAuthVerifyResponse>> {
-  const response = await apiFetch<GoogleOAuthVerifyResponse>(AUTH_API.GOOGLE_OAUTH_VERIFY, {
-    method: 'POST',
-    body: {
-      provider_token: payload.accessToken,
-      fcm_token: '',
-    } as any,
+): Promise<SessionActionResult<GoogleSupabaseLoginResponse>> {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: payload.idToken,
   });
 
-  const session = createAuthSession({
-    displayName: payload.displayName || payload.email || response.data.user.email,
-    method: 'google',
-    nextStep: response.next_step,
-    user: response.data.user,
-  });
+  if (error) {
+    throw error;
+  }
 
-  await persistAuthSession(session, response.token);
+  const supabaseSession = data.session;
+  const supabaseUser = data.user ?? supabaseSession?.user ?? null;
+
+  if (!supabaseUser) {
+    throw new Error('Supabase Google sign-in succeeded, but no user profile was returned.');
+  }
+
+  const session = createGoogleAuthSessionFromSupabaseUser(supabaseUser, payload.displayName);
+  const response: GoogleSupabaseLoginResponse = {
+    data: {
+      oauth_provider: 'google',
+      user: session.user as AuthUser,
+    },
+    message: 'Google sign-in succeeded.',
+    next_step: 'REGISTRATION_COMPLETE',
+    status: 'success',
+  };
+
+  await Promise.all([
+    SecureStore.deleteItemAsync(TOKEN_KEY),
+    replaceStoredSession(session),
+  ]);
 
   return {
     response,

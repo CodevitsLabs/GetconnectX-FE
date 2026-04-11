@@ -137,13 +137,61 @@ The response is rendered through the current design pattern:
 npm install
 ```
 
-2. Start Expo
+2. Set the required environment variables
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=...
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...
+EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME=...
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+EXPO_PUBLIC_SUPABASE_URL=...
+```
+
+3. Start Expo
 
 ```bash
 npx expo start
 ```
 
-3. Open the authenticated shell and visit the `Products` tab to see the React Query example.
+4. Open the authenticated shell and visit the `Products` tab to see the React Query example.
+
+## Supabase Chat Experiment
+
+The Google login path now creates a Supabase session directly and bypasses the email/WhatsApp
+verification screens. Email/password login still uses the existing backend verification flow.
+
+Set up Supabase first:
+
+1. In Supabase Auth, enable Google and use the same Google project/client family as the app.
+2. Run [supabase/chat-experiment-setup.sql](/Users/dwiki/Development/connectx/supabase/chat-experiment-setup.sql) in the Supabase SQL editor.
+3. Make sure `messages` and `conversation_summaries` are included in the `supabase_realtime` publication.
+4. If you use channel Presence/Broadcast, keep the `realtime.messages` policies from the setup script in place so room members can join `room:<uuid>` topics.
+
+The inbox list now reads from `conversation_summaries`, a per-user summary table maintained by
+Postgres triggers. Message history still comes from `messages`, and the active room still subscribes
+at `room:<conversationId>` for message inserts, typing, and presence.
+
+### Two-emulator test flow
+
+1. Run the app on an iPhone simulator and an Android emulator.
+2. Sign in with a different Google account on each device.
+3. In Supabase SQL editor, run:
+
+```sql
+select id, email, created_at
+from auth.users
+order by created_at desc;
+```
+
+4. Copy the two user IDs and replace `USER_ID_ACCOUNT_A` / `USER_ID_ACCOUNT_B` in the seed block
+   inside [supabase/chat-experiment-setup.sql](/Users/dwiki/Development/connectx/supabase/chat-experiment-setup.sql).
+5. Open `Google Test Room` on both devices.
+6. Send a message from device A and confirm device B receives it in realtime.
+7. Send a message from device B and confirm device A receives it in realtime.
+8. Start typing on one device and confirm the other device sees the typing indicator.
+9. Background one device and confirm presence changes on the other device.
+10. Restart the app and confirm chat history still loads from Supabase.
 
 ## Notes
 
