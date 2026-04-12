@@ -1,13 +1,29 @@
 export { ProfileScreen } from './components/profile-screen';
-export { useProfile } from './hooks/use-profile';
-export { fetchProfile, PROFILE_API } from './services/profile-service';
+export {
+  profileQueryKeys,
+  useMyProfile,
+  useProfileOptions,
+  useUpdateMyProfile,
+} from './hooks/use-profile';
+export {
+  fetchMyProfile,
+  fetchProfileOptions,
+  PROFILE_API,
+  updateMyProfile,
+} from './services/profile-service';
 export type {
-  GetProfileParams,
-  GetProfileResponse,
   ProfileBadge,
-  ProfileDetail,
-  ProfileHighlight,
+  ProfileHighlightsSection,
+  ProfileListSection,
   ProfileLocation,
+  ProfileNamedItem,
   ProfileStats,
-  ProfileTrait,
+  ProfileTextSection,
+  ProfileType,
+  MyProfileData,
+  MyProfileResponse,
+  MyProfileSections,
+  ProfileOptionsResponse,
+  UpdateMyProfileRequest,
+  UpdateMyProfileResponse,
 } from './types/profile.types';

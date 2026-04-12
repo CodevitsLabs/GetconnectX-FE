@@ -1,7 +1,9 @@
+export type ProfileType = 'founder' | 'builder' | 'investor' | 'operator' | 'student';
+
 export type ProfileLocation = {
   city: string;
   country: string;
-  displayName: string;
+  display: string;
 };
 
 export type ProfileStats = {
@@ -13,44 +15,84 @@ export type ProfileStats = {
 export type ProfileBadge = {
   id: string;
   label: string;
-  icon: string | null;
 };
 
-export type ProfileTrait = {
+export type ProfileNamedItem = {
   id: string;
-  label: string;
-  emoji: string | null;
+  name: string;
 };
 
-export type ProfileHighlight = {
-  id: string;
-  icon: string | null;
-  text: string;
+export type ProfileTextSection = {
+  title: string;
+  value: string;
 };
 
-export type ProfileDetail = {
+export type ProfileListSection = {
+  title: string;
+  items: ProfileNamedItem[];
+};
+
+export type ProfileHighlightsSection = {
+  items: string[];
+};
+
+export type MyProfileSections = {
+  startupIdea?: ProfileTextSection;
+  personalityAndHobbies?: ProfileListSection;
+  skills?: ProfileListSection;
+  interests?: ProfileListSection;
+  highlights?: ProfileHighlightsSection;
+};
+
+export type MyProfileData = {
   id: string;
-  photoUrl: string | null;
-  fullName: string;
+  teamId: string;
+  profileType: ProfileType;
+  name: string;
   headline: string;
+  photoUrl: string | null;
   location: ProfileLocation;
   stats: ProfileStats;
   badges: ProfileBadge[];
-  startupIdea: string | null;
-  personalityAndHobbies: ProfileTrait[];
-  skills: string[];
-  interests: string[];
-  highlights: ProfileHighlight[];
+  sections: MyProfileSections;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type GetProfileParams = {
-  profileId: string;
-};
-
-export type GetProfileResponse = {
-  data: {
-    profile: ProfileDetail;
-  };
+export type MyProfileResponse = {
+  success: boolean;
   message: string;
-  status: 'success';
+  data: MyProfileData;
+};
+
+export type UpdateMyProfileRequest = {
+  name: string;
+  headline: string;
+  location: string;
+  startupIdea: string;
+  personalityAndHobbyIds: string[];
+};
+
+export type UpdateMyProfileResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    name: string;
+    headline: string;
+    photoUrl: string | null;
+    location: ProfileLocation;
+    sections: {
+      startupIdea: ProfileTextSection;
+      personalityAndHobbies: ProfileListSection;
+    };
+    updatedAt: string;
+  };
+};
+
+export type ProfileOptionsResponse = {
+  success: boolean;
+  data: {
+    personalityAndHobbies: ProfileNamedItem[];
+  };
 };
