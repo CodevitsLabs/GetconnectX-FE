@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { AppButton, AppCard, AppListItem, AppPill, AppStatCard, AppText } from '@shared/components';
 
 import { useAuth } from '@features/auth';
+import { ConnectXProCard } from '@features/revenuecat';
 
 function getMethodLabel(method: string) {
   switch (method) {
@@ -30,7 +31,7 @@ export function ProfileScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Account' }} />
+      <Stack.Screen options={{ title: '' }} />
       <ScrollView
         className="flex-1 bg-canvas"
         contentContainerClassName="gap-6 px-5 pt-4 pb-24"
@@ -80,6 +81,18 @@ export function ProfileScreen() {
             title="Sign-in ID"
             value={session.email}
           />
+        </AppCard>
+
+        <AppCard tone="muted" className="gap-4">
+          <View className="gap-1">
+            <AppText variant="subtitle">Subscriptions</AppText>
+            <AppText tone="muted">
+              Keep plan state, restore controls, and paid access visibility in one predictable
+              place.
+            </AppText>
+          </View>
+
+          <ConnectXProCard />
         </AppCard>
 
         <AppCard tone="muted" className="gap-4">

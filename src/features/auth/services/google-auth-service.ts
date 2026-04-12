@@ -80,17 +80,15 @@ export async function signInWithGoogleToken(): Promise<GoogleAuthResult> {
     }
 
     const tokens = await GoogleSignin.getTokens();
-
-    console.log('Google access token:', tokens.accessToken);
-
     const accessToken = tokens.accessToken?.trim();
+    const idToken = response.data.idToken?.trim() || tokens.idToken?.trim();
     const email = response.data.user.email.trim().toLowerCase();
     const displayName = response.data.user.name?.trim() || email.split('@')[0] || 'ConnectX Member';
     const userId = response.data.user.id.trim();
 
-    if (!accessToken || !email || !userId) {
+    if (!accessToken || !idToken || !email || !userId) {
       throw new Error(
-        'Google Sign-In succeeded, but the expected identity payload was incomplete. Check the configured Google OAuth client IDs.'
+        'Google Sign-In succeeded, but the expected ID token payload was incomplete. Check the configured Google OAuth client IDs in both the app and Supabase.'
       );
     }
 
@@ -99,6 +97,7 @@ export async function signInWithGoogleToken(): Promise<GoogleAuthResult> {
       displayName,
       provider: 'google',
       accessToken,
+      idToken,
       fcmToken: null,
       userId,
     };

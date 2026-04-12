@@ -1,14 +1,22 @@
 import React from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { configureApiClient } from '@shared/services/api';
+import {
+  getSupabaseSession,
+  signOutSupabase,
+  supabase,
+  syncSupabaseRealtimeAuth,
+} from '@shared/services/supabase/client';
 
 import { isAuthBypassEnabled } from '../config/auth-config';
 import {
   clearPersistedAuth,
+  createGoogleAuthSessionFromSupabaseSession,
   enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
-  loginWithGoogleApi,
+  loginWithGoogleSupabase,
   loginWithApi,
   registerWithApi,
   resendWhatsappOtpWithApi,
@@ -44,7 +52,7 @@ type AuthContextValue = {
   resendWhatsappOtp: () => ReturnType<typeof resendWhatsappOtpWithApi>;
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpWithMock>;
   sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpWithApi>;
-  signInWithGoogle: () => ReturnType<typeof loginWithGoogleApi>;
+  signInWithGoogle: () => ReturnType<typeof loginWithGoogleSupabase>;
   signOut: () => Promise<void>;
   verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpWithMock>;
   verifyWhatsappOtp: (payload: VerifyWhatsappPayload) => ReturnType<typeof verifyWhatsappOtpWithApi>;
@@ -57,12 +65,24 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const [authPhase, setAuthPhase] = React.useState<AuthPhase>('signed_out');
   const [session, setSession] = React.useState<AuthSession | null>(null);
   const authBypassEnabled = React.useMemo(() => isAuthBypassEnabled(), []);
+  const sessionRef = React.useRef<AuthSession | null>(null);
+
+  React.useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const signOut = React.useCallback(async () => {
+    const shouldSignOutSupabase = session?.method === 'google';
+
     await clearPersistedAuth();
+
+    if (shouldSignOutSupabase) {
+      await signOutSupabase();
+    }
+
     setAuthPhase('signed_out');
     setSession(null);
-  }, []);
+  }, [session?.method]);
 
   const enterPendingOnboarding = React.useCallback(async () => {
     if (!session) {
@@ -115,6 +135,30 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     let isActive = true;
 
     const hydrate = async () => {
+      const supabaseSession = await getSupabaseSession();
+
+      if (!isActive) {
+        return;
+      }
+
+      if (supabaseSession?.user) {
+        const nextSession = createGoogleAuthSessionFromSupabaseSession(supabaseSession);
+
+        await Promise.all([
+          replaceStoredSession(nextSession),
+          syncSupabaseRealtimeAuth(supabaseSession),
+        ]);
+
+        if (!isActive) {
+          return;
+        }
+
+        setSession(nextSession);
+        setAuthPhase(nextSession.authPhase);
+        setIsHydrated(true);
+        return;
+      }
+
       const { token, session: storedSession } = await getPersistedAuthState();
 
       if (!isActive) {
@@ -144,10 +188,65 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     configureApiClient({
       getAccessToken: getStoredToken,
       onUnauthorized: async () => {
+        if (session?.method === 'google') {
+          return;
+        }
+
         await signOut();
       },
     });
-  }, [signOut]);
+  }, [session?.method, signOut]);
+
+  React.useEffect(() => {
+    const syncAutoRefresh = (state: AppStateStatus) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    };
+
+    syncAutoRefresh(AppState.currentState);
+    const subscription = AppState.addEventListener('change', syncAutoRefresh);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, nextSupabaseSession) => {
+      if (event === 'SIGNED_OUT') {
+        if (sessionRef.current?.method === 'google') {
+          await clearPersistedAuth();
+          setSession(null);
+          setAuthPhase('signed_out');
+        }
+
+        return;
+      }
+
+      if (
+        (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') &&
+        nextSupabaseSession?.user
+      ) {
+        const nextSession = createGoogleAuthSessionFromSupabaseSession(nextSupabaseSession);
+
+        await Promise.all([
+          replaceStoredSession(nextSession),
+          syncSupabaseRealtimeAuth(nextSupabaseSession),
+        ]);
+        setSession(nextSession);
+        setAuthPhase(nextSession.authPhase);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const login = React.useCallback(
     async (payload: LoginPayload) => {
@@ -161,10 +260,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const signInWithGoogle = React.useCallback(async () => {
     const googleResult = await signInWithGoogleToken();
-    const result = await loginWithGoogleApi({
+    const result = await loginWithGoogleSupabase({
       accessToken: googleResult.accessToken,
       displayName: googleResult.displayName,
       email: googleResult.email,
+      idToken: googleResult.idToken,
     });
 
     setSession(result.session);
@@ -277,7 +377,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 }
 
 export function useAuthContext() {
-  const value = React.use(AuthContext);
+  const value = React.useContext(AuthContext);
 
   if (!value) {
     throw new Error('useAuth must be used inside AuthProvider');

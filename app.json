@@ -12,14 +12,13 @@
       "bundleIdentifier": "com.dwiki.connectx",
       "googleServicesFile": "./ios/GoogleService-Info.plist",
       "appleTeamId": "6YQB49MLC8",
-      "entitlements": {
-        "aps-environment": "development"
-      },
+      "buildNumber": "12",
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -62,6 +61,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5ec44f8b-d5bc-4843-8f13-91d1cae16bde"
+      }
+    },
+    "owner": "dwikis17"
   }
 }
