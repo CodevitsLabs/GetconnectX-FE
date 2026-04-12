@@ -94,7 +94,7 @@ class SupabaseChatRepository implements ChatRepository {
     const { data, error } = await supabase
       .from('conversation_summaries')
       .select(
-        'conversation_id, kind, last_message_at, last_message_text, title, unread_count, updated_at'
+        'conversation_id, kind, last_message_at, last_message_text, participant_headline, participant_name, participant_photo_url, participant_user_id, title, unread_count, updated_at'
       )
       .eq('user_id', userId);
 

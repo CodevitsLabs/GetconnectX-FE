@@ -5,6 +5,9 @@ export type ChatRoom = {
   kind: ChatRoomKind;
   lastMessageAt: string;
   preview: string;
+  photoUrl?: string | null;
+  headline?: string | null;
+  participantUserId?: string | null;
   title: string;
   unreadCount: number;
 };

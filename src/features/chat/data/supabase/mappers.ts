@@ -14,6 +14,10 @@ export type ConversationSummaryRow = {
   kind: ChatRoomKind;
   last_message_at: string | null;
   last_message_text: string | null;
+  participant_headline: string | null;
+  participant_name: string | null;
+  participant_photo_url: string | null;
+  participant_user_id: string | null;
   title: string;
   unread_count: number;
   updated_at: string;
@@ -35,9 +39,12 @@ export function mapConversationSummaryRow(row: ConversationSummaryRow): ChatRoom
   return {
     id: row.conversation_id,
     kind: row.kind,
+    headline: row.participant_headline,
     lastMessageAt: row.last_message_at ?? row.updated_at,
+    participantUserId: row.participant_user_id,
+    photoUrl: row.participant_photo_url,
     preview: row.last_message_text ?? 'No messages yet',
-    title: row.title,
+    title: row.participant_name ?? row.title,
     unreadCount: row.unread_count,
   };
 }
