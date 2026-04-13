@@ -4,6 +4,8 @@ import { Stack, useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
+  FlatList,
+  ListRenderItemInfo,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -291,11 +293,11 @@ function ConversationPanel({
   const sendMessageMutation = useSendChatMessage(roomId);
   const { typingState } = useRoomRealtime(roomId, isChatEnabled && Boolean(roomId));
   const presence = useRoomPresence(roomId, isChatEnabled && Boolean(roomId));
-  const scrollRef = React.useRef<ScrollView>(null);
+  const listRef = React.useRef<FlatList<ChatMessage>>(null);
   const hasPerformedInitialScrollRef = React.useRef(false);
   const isNearBottomRef = React.useRef(true);
   const messages = React.useMemo(
-    () => [...(messagesQuery.data?.pages ?? [])].reverse().flatMap((page) => page.items),
+    () => (messagesQuery.data?.pages ?? []).flatMap((page) => [...page.items].reverse()),
     [messagesQuery.data]
   );
   const newestMessageId = messages.at(-1)?.id ?? null;
@@ -327,7 +329,10 @@ function ConversationPanel({
     }
 
     if (!hasPerformedInitialScrollRef.current || isNearBottomRef.current) {
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: hasPerformedInitialScrollRef.current }), 50);
+      setTimeout(
+        () => listRef.current?.scrollToOffset({ animated: hasPerformedInitialScrollRef.current, offset: 0 }),
+        50
+      );
       hasPerformedInitialScrollRef.current = true;
     }
   }, [newestMessageId]);
@@ -344,8 +349,67 @@ function ConversationPanel({
       content: body,
     });
     setDraftMessage('');
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => listRef.current?.scrollToOffset({ animated: true, offset: 0 }), 100);
   }, [draftMessage, roomId, sendMessageMutation, session?.user?.id]);
+
+  const renderMessage = React.useCallback(
+    ({ item: message }: ListRenderItemInfo<ChatMessage>) => {
+      const isOutgoing = message.senderId === session?.user?.id;
+      const hasRichMedia =
+        Boolean(message.mediaUrl) &&
+        (message.messageType === 'image' ||
+          message.messageType === 'video' ||
+          message.messageType === 'file');
+
+      return (
+        <View className={isOutgoing ? 'items-end' : 'items-start'}>
+          <View
+            className={
+              isOutgoing
+                ? `max-w-[82%] rounded-[26px] rounded-br-[10px] bg-[#FF9D3D] ${hasRichMedia ? 'p-3' : 'px-5 py-4'}`
+                : `max-w-[82%] rounded-[26px] rounded-bl-[10px] bg-[#313131] ${hasRichMedia ? 'p-3' : 'px-5 py-4'}`
+            }>
+            <MessageBody
+              isOutgoing={isOutgoing}
+              message={message}
+            />
+            <AppText
+              className={isOutgoing ? 'mt-2 text-[#7C5526]' : 'mt-2 text-[#97928B]'}
+              variant="code">
+              {formatMessageTime(message.createdAt)}
+              {message.status === 'sending' ? ' · sending' : ''}
+              {message.status === 'failed' ? ' · failed' : ''}
+            </AppText>
+          </View>
+        </View>
+      );
+    },
+    [session?.user?.id]
+  );
+
+  const listFooter = React.useMemo(() => {
+    if (messagesQuery.isFetchingNextPage) {
+      return (
+        <View className="items-center py-2">
+          <AppText className="text-[#9C9893]" variant="code">
+            Loading earlier messages...
+          </AppText>
+        </View>
+      );
+    }
+
+    if (!messagesQuery.hasNextPage && messages.length > 0) {
+      return (
+        <View className="items-center py-2">
+          <AppText className="text-[#77736D]" variant="code">
+            Start of conversation
+          </AppText>
+        </View>
+      );
+    }
+
+    return null;
+  }, [messages.length, messagesQuery.hasNextPage, messagesQuery.isFetchingNextPage]);
 
   if (!conversation) {
     return (
@@ -397,87 +461,41 @@ function ConversationPanel({
 
       <View className="mx-4 h-px bg-[#3A3938]" />
 
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={listRef}
         className="flex-1"
-        contentContainerClassName="gap-4 px-4 py-5"
+        contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingVertical: 20 }}
+        data={messages}
+        inverted
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          messagesQuery.isLoading ? (
+            <View className="items-center py-8">
+              <ActivityIndicator color="#F59E0B" />
+            </View>
+          ) : null
+        }
+        ListFooterComponent={listFooter}
         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-        onScroll={(event) => {
-          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-          isNearBottomRef.current =
-            layoutMeasurement.height + contentOffset.y >= contentSize.height - 120;
-
-          if (
-            contentOffset.y <= 120 &&
-            messagesQuery.hasNextPage &&
-            !messagesQuery.isFetchingNextPage
-          ) {
+        onEndReached={() => {
+          if (messagesQuery.hasNextPage && !messagesQuery.isFetchingNextPage) {
             void messagesQuery.fetchNextPage();
           }
         }}
-        scrollEventThrottle={16}>
-        {messagesQuery.isLoading ? (
-          <View className="items-center py-8">
-            <ActivityIndicator color="#F59E0B" />
-          </View>
-        ) : null}
+        onEndReachedThreshold={0.2}
+        onScroll={(event) => {
+          const { contentOffset } = event.nativeEvent;
+          isNearBottomRef.current = contentOffset.y <= 120;
+        }}
+        renderItem={renderMessage}
+        scrollEventThrottle={16}
+      />
 
-        {messagesQuery.isFetchingNextPage ? (
-          <View className="items-center py-2">
-            <AppText className="text-[#9C9893]" variant="code">
-              Loading earlier messages...
-            </AppText>
-          </View>
-        ) : null}
-
-        {!messagesQuery.hasNextPage && messages.length > 0 ? (
-          <View className="items-center py-2">
-            <AppText className="text-[#77736D]" variant="code">
-              Start of conversation
-            </AppText>
-          </View>
-        ) : null}
-
-        {messagesQuery.error instanceof Error ? (
-          <AppText className="py-4" tone="danger">
-            {messagesQuery.error.message}
-          </AppText>
-        ) : null}
-
-        {messages.map((message) => {
-          const isOutgoing = message.senderId === session?.user?.id;
-          const hasRichMedia =
-            Boolean(message.mediaUrl) &&
-            (message.messageType === 'image' ||
-              message.messageType === 'video' ||
-              message.messageType === 'file');
-
-          return (
-            <View
-              key={message.id}
-              className={isOutgoing ? 'items-end' : 'items-start'}>
-              <View
-                className={
-                  isOutgoing
-                    ? `max-w-[82%] rounded-[26px] rounded-br-[10px] bg-[#FF9D3D] ${hasRichMedia ? 'p-3' : 'px-5 py-4'}`
-                    : `max-w-[82%] rounded-[26px] rounded-bl-[10px] bg-[#313131] ${hasRichMedia ? 'p-3' : 'px-5 py-4'}`
-                }>
-                <MessageBody
-                  isOutgoing={isOutgoing}
-                  message={message}
-                />
-                <AppText
-                  className={isOutgoing ? 'mt-2 text-[#7C5526]' : 'mt-2 text-[#97928B]'}
-                  variant="code">
-                  {formatMessageTime(message.createdAt)}
-                  {message.status === 'sending' ? ' · sending' : ''}
-                  {message.status === 'failed' ? ' · failed' : ''}
-                </AppText>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
+      {messagesQuery.error instanceof Error ? (
+        <View className="px-4 py-3">
+          <AppText tone="danger">{messagesQuery.error.message}</AppText>
+        </View>
+      ) : null}
 
       <View className="border-t border-[#3A3938] px-4 pb-8 pt-3">
         {typingState?.isTyping ? (
