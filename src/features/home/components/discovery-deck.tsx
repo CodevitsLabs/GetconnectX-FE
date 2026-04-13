@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import React from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import Animated, {
   interpolate,
   runOnJS,
@@ -48,6 +48,8 @@ const SWIPE_THRESHOLD = 120;
 const PRELOAD_THRESHOLD = 3;
 const DISCOVERY_PAGE_LIMIT = 10;
 const DEFAULT_FILTER_MODE: DiscoveryMode = 'joining_startups';
+const MATCH_TOAST_DURATION_MS = 2600;
+const MOCK_MATCH_SCORE_THRESHOLD = 92;
 
 const GOAL_ID_BY_MODE: Record<DiscoveryMode, DiscoveryGoalId> = {
   finding_cofounder: 'goal_finding_cofounder',
@@ -133,11 +135,11 @@ function isPremiumRequiredError(error: unknown) {
 
   const payloadCode =
     error.payload &&
-    typeof error.payload === 'object' &&
-    'error' in error.payload &&
-    error.payload.error &&
-    typeof error.payload.error === 'object' &&
-    'code' in error.payload.error
+      typeof error.payload === 'object' &&
+      'error' in error.payload &&
+      error.payload.error &&
+      typeof error.payload.error === 'object' &&
+      'code' in error.payload.error
       ? error.payload.error.code
       : undefined;
 
@@ -290,6 +292,10 @@ function getGoalOptions(sections: DiscoveryFilterSection[], mode: DiscoveryMode)
   );
 }
 
+function shouldShowMockMatchToast(card: DiscoveryCard) {
+  return false
+}
+
 function DiscoveryTag({
   item,
   tone = 'default',
@@ -411,6 +417,7 @@ export function DiscoveryDeck() {
   const [history, setHistory] = React.useState<DiscoveryCard[]>([]);
   const [lastSuccessfulCards, setLastSuccessfulCards] = React.useState<DiscoveryCard[]>([]);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [matchToastName, setMatchToastName] = React.useState<string | null>(null);
   const [filterError, setFilterError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
@@ -422,6 +429,7 @@ export function DiscoveryDeck() {
   const translateY = useSharedValue(0);
   const nextCardScale = useSharedValue(0.96);
   const currentCardRef = React.useRef<DiscoveryCard | null>(null);
+  const matchToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filterOptionsQuery = useDiscoveryFilterOptions(sheetMode, isFilterVisible);
   const liveFilterOptions = filterOptionsQuery.data;
@@ -534,16 +542,37 @@ export function DiscoveryDeck() {
     setRestoredCards([]);
     setHistory([]);
     setActionError(null);
+    setMatchToastName(null);
     translateX.value = 0;
     translateY.value = 0;
     nextCardScale.value = 0.96;
   }, [discoveryRequest, nextCardScale, translateX, translateY]);
+
+  React.useEffect(() => {
+    return () => {
+      if (matchToastTimerRef.current) {
+        clearTimeout(matchToastTimerRef.current);
+      }
+    };
+  }, []);
 
   const resetCardPosition = React.useCallback(() => {
     translateX.value = withSpring(0);
     translateY.value = withSpring(0);
     nextCardScale.value = withSpring(0.96);
   }, [nextCardScale, translateX, translateY]);
+
+  const showMatchToast = React.useCallback((cardName: string) => {
+    if (matchToastTimerRef.current) {
+      clearTimeout(matchToastTimerRef.current);
+    }
+
+    setMatchToastName(cardName);
+    matchToastTimerRef.current = setTimeout(() => {
+      setMatchToastName(null);
+      matchToastTimerRef.current = null;
+    }, MATCH_TOAST_DURATION_MS);
+  }, []);
 
   const handleSwipeAction = React.useCallback(
     async (direction: SwipeDirection) => {
@@ -560,15 +589,24 @@ export function DiscoveryDeck() {
       try {
         triggerSwipeHaptic(direction);
         setHistory((current) => [...current.slice(-19), activeCard]);
+        let matched = false;
 
         if (usingFallback) {
           setFallbackCards((current) => current.filter((item) => item.id !== activeCard.id));
         } else {
           setRestoredCards((current) => current.filter((card) => card.id !== activeCard.id));
-          await swipeAction.mutateAsync({
+          const response = await swipeAction.mutateAsync({
             payload: { action },
             profileId: activeCard.profileId,
           });
+          console.log('response', response);
+
+          matched = Boolean(response.data.isMatch);
+        }
+
+        if (direction === 'right' && (matched || shouldShowMockMatchToast(activeCard))) {
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          showMatchToast(activeCard.name);
         }
 
         setActionError(null);
@@ -581,7 +619,7 @@ export function DiscoveryDeck() {
         nextCardScale.value = 0.96;
       }
     },
-    [nextCardScale, resetCardPosition, swipeAction, translateX, translateY, usingFallback]
+    [nextCardScale, resetCardPosition, showMatchToast, swipeAction, translateX, translateY, usingFallback]
   );
 
   const handleRewind = React.useCallback(() => {
@@ -797,6 +835,24 @@ export function DiscoveryDeck() {
 
   return (
     <View className="flex-1 gap-4 px-4 pb-1" style={{ paddingTop: insets.top + 4 }}>
+      {matchToastName ? (
+        <View className="absolute inset-x-4 top-2 z-20" pointerEvents="none">
+          <AppCard
+            className="gap-1 rounded-[18px] border px-4 py-3"
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.96)',
+              borderColor: 'rgba(209, 250, 229, 0.72)',
+            }}>
+            <AppText className="text-[12px] uppercase tracking-[1px]" style={{ color: '#052E16' }} variant="label">
+              Mock Match
+            </AppText>
+            <AppText className="text-[15px]" style={{ color: '#052E16' }} variant="bodyStrong">
+              You and {matchToastName} liked each other.
+            </AppText>
+          </AppCard>
+        </View>
+      ) : null}
+
       <View className="flex-row items-center justify-between">
         <View className="gap-1">
           <AppText variant="title">Discover</AppText>
