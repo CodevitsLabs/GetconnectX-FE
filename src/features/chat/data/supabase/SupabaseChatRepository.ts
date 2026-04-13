@@ -20,7 +20,7 @@ import {
   type MessageRow,
 } from './mappers';
 
-const MESSAGE_PAGE_SIZE = 30;
+const MESSAGE_PAGE_SIZE = 5;
 
 type RoomChannelState = {
   channel: RealtimeChannel;

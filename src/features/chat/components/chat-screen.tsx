@@ -292,7 +292,13 @@ function ConversationPanel({
   const { typingState } = useRoomRealtime(roomId, isChatEnabled && Boolean(roomId));
   const presence = useRoomPresence(roomId, isChatEnabled && Boolean(roomId));
   const scrollRef = React.useRef<ScrollView>(null);
-  const messages = messagesQuery.data?.items ?? [];
+  const hasPerformedInitialScrollRef = React.useRef(false);
+  const isNearBottomRef = React.useRef(true);
+  const messages = React.useMemo(
+    () => [...(messagesQuery.data?.pages ?? [])].reverse().flatMap((page) => page.items),
+    [messagesQuery.data]
+  );
+  const newestMessageId = messages.at(-1)?.id ?? null;
 
   useRoomTyping(roomId, draftMessage, isChatEnabled && Boolean(roomId));
 
@@ -313,6 +319,18 @@ function ConversationPanel({
     messagesQuery.isSuccess,
     roomId,
   ]);
+
+  React.useEffect(() => {
+    if (!newestMessageId) {
+      hasPerformedInitialScrollRef.current = false;
+      return;
+    }
+
+    if (!hasPerformedInitialScrollRef.current || isNearBottomRef.current) {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: hasPerformedInitialScrollRef.current }), 50);
+      hasPerformedInitialScrollRef.current = true;
+    }
+  }, [newestMessageId]);
 
   const handleSend = React.useCallback(async () => {
     const body = draftMessage.trim();
@@ -383,10 +401,40 @@ function ConversationPanel({
         ref={scrollRef}
         className="flex-1"
         contentContainerClassName="gap-4 px-4 py-5"
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          isNearBottomRef.current =
+            layoutMeasurement.height + contentOffset.y >= contentSize.height - 120;
+
+          if (
+            contentOffset.y <= 120 &&
+            messagesQuery.hasNextPage &&
+            !messagesQuery.isFetchingNextPage
+          ) {
+            void messagesQuery.fetchNextPage();
+          }
+        }}
+        scrollEventThrottle={16}>
         {messagesQuery.isLoading ? (
           <View className="items-center py-8">
             <ActivityIndicator color="#F59E0B" />
+          </View>
+        ) : null}
+
+        {messagesQuery.isFetchingNextPage ? (
+          <View className="items-center py-2">
+            <AppText className="text-[#9C9893]" variant="code">
+              Loading earlier messages...
+            </AppText>
+          </View>
+        ) : null}
+
+        {!messagesQuery.hasNextPage && messages.length > 0 ? (
+          <View className="items-center py-2">
+            <AppText className="text-[#77736D]" variant="code">
+              Start of conversation
+            </AppText>
           </View>
         ) : null}
 

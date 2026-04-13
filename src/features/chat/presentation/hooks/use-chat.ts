@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import React from 'react';
 
 import { useAuth } from '@features/auth';
@@ -26,6 +32,11 @@ const chatQueryKeys = {
   messages: (roomId: string) => ['chat', 'messages', roomId] as const,
   rooms: ['chat', 'rooms'] as const,
 };
+
+const ROOM_MESSAGES_STALE_TIME = 30 * 1000;
+const ROOM_MESSAGES_GC_TIME = 5 * 60 * 1000;
+
+type RoomMessagesCache = InfiniteData<PaginatedMessages, string | null>;
 
 function upsertMessage(items: ChatMessage[], nextMessage: ChatMessage) {
   const nextItems = [...items];
@@ -70,6 +81,50 @@ function markRoomRead(
   );
 }
 
+function createInitialRoomMessages(nextMessage: ChatMessage): RoomMessagesCache {
+  return {
+    pages: [
+      {
+        items: [nextMessage],
+        nextCursor: null,
+      },
+    ],
+    pageParams: [null],
+  };
+}
+
+function updateLatestMessagePage(
+  current: RoomMessagesCache | undefined,
+  updater: (items: ChatMessage[]) => ChatMessage[]
+): RoomMessagesCache | undefined {
+  if (!current || current.pages.length === 0) {
+    return current;
+  }
+
+  return {
+    ...current,
+    pages: current.pages.map((page, index) =>
+      index === 0
+        ? {
+            ...page,
+            items: updater(page.items),
+          }
+        : page
+    ),
+  };
+}
+
+function upsertMessageInPages(
+  current: RoomMessagesCache | undefined,
+  nextMessage: ChatMessage
+): RoomMessagesCache {
+  if (!current || current.pages.length === 0) {
+    return createInitialRoomMessages(nextMessage);
+  }
+
+  return updateLatestMessagePage(current, (items) => upsertMessage(items, nextMessage)) ?? current;
+}
+
 export function useChatRooms(enabled = true) {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -110,12 +165,23 @@ export function useChatRooms(enabled = true) {
 }
 
 export function useRoomMessages(roomId: string | null, enabled = true) {
-  return useQuery({
+  const queryKey = roomId ? chatQueryKeys.messages(roomId) : (['chat', 'messages', 'idle'] as const);
+
+  return useInfiniteQuery<
+    PaginatedMessages,
+    Error,
+    InfiniteData<PaginatedMessages, string | null>,
+    typeof queryKey,
+    string | null
+  >({
     enabled: enabled && Boolean(roomId),
-    queryKey: roomId ? chatQueryKeys.messages(roomId) : ['chat', 'messages', 'idle'],
-    queryFn: () => getChatMessages(supabaseChatRepository, roomId ?? ''),
-    staleTime: 0,
-    refetchOnMount: 'always',
+    gcTime: ROOM_MESSAGES_GC_TIME,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: null as string | null,
+    queryKey,
+    queryFn: ({ pageParam }) => getChatMessages(supabaseChatRepository, roomId ?? '', pageParam ?? undefined),
+    staleTime: ROOM_MESSAGES_STALE_TIME,
+    refetchOnMount: false,
     refetchOnReconnect: true,
   });
 }
@@ -170,14 +236,13 @@ export function useSendChatMessage(roomId: string | null) {
 
       await queryClient.cancelQueries({ queryKey: chatQueryKeys.messages(roomId) });
 
-      const previousMessages = queryClient.getQueryData<PaginatedMessages>(
+      const previousMessages = queryClient.getQueryData<RoomMessagesCache>(
         chatQueryKeys.messages(roomId)
       );
 
-      queryClient.setQueryData<PaginatedMessages>(chatQueryKeys.messages(roomId), (current) => ({
-        items: upsertMessage(current?.items ?? [], optimisticMessage),
-        nextCursor: current?.nextCursor ?? null,
-      }));
+      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+        upsertMessageInPages(current, optimisticMessage)
+      );
 
       return {
         optimisticMessage,
@@ -189,39 +254,34 @@ export function useSendChatMessage(roomId: string | null) {
         return;
       }
 
-      queryClient.setQueryData<PaginatedMessages>(chatQueryKeys.messages(roomId), (current) => {
-        const items = (current?.items ?? []).map((message) =>
-          message.id === context.optimisticMessage.id
-            ? { ...message, status: 'failed' as const }
-            : message
-        );
-
-        return {
-          items,
-          nextCursor: current?.nextCursor ?? null,
-        };
-      });
+      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+        updateLatestMessagePage(current, (items) =>
+          items.map((message) =>
+            message.id === context.optimisticMessage.id
+              ? { ...message, status: 'failed' as const }
+              : message
+          )
+        ) ?? current
+      );
     },
     onSuccess: (savedMessage, _content, context) => {
       if (!roomId) {
         return;
       }
 
-      queryClient.setQueryData<PaginatedMessages>(chatQueryKeys.messages(roomId), (current) => {
-        const messages = current?.items ?? [];
-        const optimisticId = context?.optimisticMessage?.id;
-        const optimisticClientId = context?.optimisticMessage?.clientId;
-        const filteredMessages = messages.filter(
-          (message) =>
-            message.id !== optimisticId &&
-            !(message.clientId && optimisticClientId && message.clientId === optimisticClientId)
-        );
+      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+        updateLatestMessagePage(current, (messages) => {
+          const optimisticId = context?.optimisticMessage?.id;
+          const optimisticClientId = context?.optimisticMessage?.clientId;
+          const filteredMessages = messages.filter(
+            (message) =>
+              message.id !== optimisticId &&
+              !(message.clientId && optimisticClientId && message.clientId === optimisticClientId)
+          );
 
-        return {
-          items: upsertMessage(filteredMessages, savedMessage),
-          nextCursor: current?.nextCursor ?? null,
-        };
-      });
+          return upsertMessage(filteredMessages, savedMessage);
+        }) ?? createInitialRoomMessages(savedMessage)
+      );
     },
   });
 }
@@ -278,10 +338,9 @@ export function useRoomRealtime(roomId: string | null, enabled = true) {
         console.warn('Chat room subscription error:', error.message);
       },
       onMessage: (message) => {
-        queryClient.setQueryData<PaginatedMessages>(chatQueryKeys.messages(roomId), (current) => ({
-          items: upsertMessage(current?.items ?? [], message),
-          nextCursor: current?.nextCursor ?? null,
-        }));
+        queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+          upsertMessageInPages(current, message)
+        );
       },
       onTyping: (nextTypingState) => {
         if (nextTypingState.userId === session?.user?.id) {
