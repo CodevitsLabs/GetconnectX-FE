@@ -5,7 +5,7 @@ export { VerifyEmailScreen } from './components/verify-email-screen';
 export { VerifyOtpScreen } from './components/verify-otp-screen';
 export { VerifyWhatsappScreen } from './components/verify-whatsapp-screen';
 export { useAuth } from './hooks/use-auth';
+export { useLinkedInAuth } from './hooks/use-linkedin-auth';
 export { AuthProvider } from './store/auth-provider';
 export type { AuthPhase, AuthSession, GoogleAuthResult } from './types/auth.types';
 export { canAccessProtectedRoutes, getRouteForAuthPhase } from './utils/auth-routing';
-

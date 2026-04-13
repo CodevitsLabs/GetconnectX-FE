@@ -31,6 +31,9 @@ const AUTH_API = {
   REGISTER: '/api/v1/auth/register',
   LOGIN: '/api/v1/auth/login/password',
   GOOGLE_OAUTH_VERIFY: '/api/v1/auth/oauth/google/verify-token',
+  LINKEDIN_OAUTH_AUTHORIZE: '/api/v1/auth/oauth/linkedin/authorize',
+  LINKEDIN_OAUTH_EXCHANGE_CODE: '/api/v1/auth/oauth/linkedin/exchange-code',
+  LINKEDIN_OAUTH_VERIFY: '/api/v1/auth/oauth/linkedin/verify-token',
   WHATSAPP_SEND_OTP: '/api/v1/auth/whatsapp/send-otp',
   WHATSAPP_RESEND_OTP: '/api/v1/auth/whatsapp/resend-otp',
   VERIFY_WHATSAPP: '/api/v1/auth/verify-whatsapp',
@@ -47,7 +50,7 @@ const AUTH_PHASES = new Set([
   'pending_onboarding',
   'authenticated',
 ]);
-const AUTH_METHODS = new Set(['email', 'google', 'apple', 'developer-bypass']);
+const AUTH_METHODS = new Set(['email', 'google', 'linkedin', 'apple', 'developer-bypass']);
 
 type PersistedAuthState = {
   session: AuthSession | null;
@@ -74,6 +77,7 @@ export type GoogleOAuthLoginPayload = {
   accessToken: string;
   displayName?: string | null;
   email?: string | null;
+  fcmToken?: string | null;
   idToken: string;
 };
 
@@ -83,14 +87,12 @@ export type GoogleOAuthVerifyResponse = AuthSuccessResponse & {
   };
 };
 
-export type GoogleSupabaseLoginResponse = {
-  data: {
-    oauth_provider: 'google';
-    user: AuthUser;
+type SocialSupabaseMethod = Extract<AuthSession['method'], 'google' | 'linkedin'>;
+
+export type LinkedInOAuthVerifyResponse = AuthSuccessResponse & {
+  data: AuthSuccessResponse['data'] & {
+    oauth_provider: 'linkedin';
   };
-  message: string;
-  next_step: 'REGISTRATION_COMPLETE';
-  status: 'success';
 };
 
 export async function getStoredToken() {
@@ -275,17 +277,87 @@ function buildDisplayNameFromSupabaseUser(
   return buildDisplayNameFromEmail(user.email?.trim().toLowerCase() ?? 'connectx-member');
 }
 
-export function createGoogleAuthSessionFromSupabaseUser(
+function createAuthenticatedSocialSessionFromUser({
+  displayName,
+  method,
+  user,
+}: {
+  displayName?: string | null;
+  method: SocialSupabaseMethod;
+  user: AuthUser;
+}): AuthSession {
+  const baseSession = createAuthSession({
+    displayName,
+    method,
+    nextStep: 'REGISTRATION_COMPLETE',
+    user,
+  });
+  const now = new Date().toISOString();
+
+  return {
+    ...baseSession,
+    authPhase: 'authenticated',
+    onboardingCompletedAt: now,
+    user: baseSession.user
+      ? {
+          ...baseSession.user,
+          email_verified_at: baseSession.user.email_verified_at ?? now,
+          is_active: true,
+          registration_step: Math.max(baseSession.user.registration_step, 5),
+        }
+      : null,
+  };
+}
+
+function normalizeSocialLoginPayload({
+  fcmToken,
+  providerToken,
+  provider,
+}: {
+  fcmToken?: string | null;
+  provider: 'google' | 'linkedin';
+  providerToken: string;
+}) {
+  return {
+    fcm_token: fcmToken?.trim() || mockFCMToken,
+    provider,
+    provider_token: providerToken,
+  };
+}
+
+function buildDisplayNameFromAuthUser(user: AuthUser, displayName?: string | null) {
+  const normalizedDisplayName = displayName?.trim();
+
+  if (normalizedDisplayName) {
+    return normalizedDisplayName;
+  }
+
+  return buildDisplayNameFromEmail(user.email.trim().toLowerCase());
+}
+
+function inferSocialMethodFromSupabaseUser(user: SupabaseUser): SocialSupabaseMethod {
+  const provider = typeof user.app_metadata?.provider === 'string' ? user.app_metadata.provider : '';
+
+  if (provider === 'linkedin_oidc' || provider === 'linkedin') {
+    return 'linkedin';
+  }
+
+  return 'google';
+}
+
+export function createSocialAuthSessionFromSupabaseUser(
   user: SupabaseUser,
+  method?: SocialSupabaseMethod,
   displayName?: string | null
 ): AuthSession {
   const normalizedEmail = user.email?.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    throw new Error('Supabase Google login succeeded, but no email was returned.');
+    throw new Error('Supabase social sign-in succeeded, but no email was returned.');
   }
 
   const now = new Date().toISOString();
+  const normalizedMethod = method ?? inferSocialMethodFromSupabaseUser(user);
 
   return {
     authPhase: 'authenticated',
@@ -295,7 +367,7 @@ export function createGoogleAuthSessionFromSupabaseUser(
     emailOtpExpiresAt: null,
     emailOtpLastSentAt: null,
     emailOtpResendAvailableAt: null,
-    method: 'google',
+    method: normalizedMethod,
     onboardingCompletedAt: now,
     pendingWhatsappNumber: null,
     user: {
@@ -313,11 +385,26 @@ export function createGoogleAuthSessionFromSupabaseUser(
   };
 }
 
+export function createGoogleAuthSessionFromSupabaseUser(
+  user: SupabaseUser,
+  displayName?: string | null
+): AuthSession {
+  return createSocialAuthSessionFromSupabaseUser(user, 'google', displayName);
+}
+
 export function createGoogleAuthSessionFromSupabaseSession(
   session: SupabaseSession,
   displayName?: string | null
 ) {
   return createGoogleAuthSessionFromSupabaseUser(session.user, displayName);
+}
+
+export function createSocialAuthSessionFromSupabaseSession(
+  session: SupabaseSession,
+  method?: SocialSupabaseMethod,
+  displayName?: string | null
+) {
+  return createSocialAuthSessionFromSupabaseUser(session.user, method, displayName);
 }
 
 async function requireStoredAuthState() {
@@ -443,7 +530,7 @@ export async function loginWithApi(
 
 export async function loginWithGoogleSupabase(
   payload: GoogleOAuthLoginPayload
-): Promise<SessionActionResult<GoogleSupabaseLoginResponse>> {
+): Promise<SessionActionResult<GoogleOAuthVerifyResponse>> {
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token: payload.idToken,
@@ -460,26 +547,121 @@ export async function loginWithGoogleSupabase(
     throw new Error('Supabase Google sign-in succeeded, but no user profile was returned.');
   }
 
-  const session = createGoogleAuthSessionFromSupabaseUser(supabaseUser, payload.displayName);
-  const response: GoogleSupabaseLoginResponse = {
-    data: {
-      oauth_provider: 'google',
-      user: session.user as AuthUser,
-    },
-    message: 'Google sign-in succeeded.',
-    next_step: 'REGISTRATION_COMPLETE',
-    status: 'success',
-  };
+  const backendPayload = normalizeSocialLoginPayload({
+    fcmToken: payload.fcmToken,
+    provider: 'google',
+    providerToken: payload.accessToken,
+  });
 
-  await Promise.all([
-    SecureStore.deleteItemAsync(TOKEN_KEY),
-    replaceStoredSession(session),
-  ]);
+  console.log('[auth][google] oauth success payload', backendPayload);
+
+  const response = await apiFetch<GoogleOAuthVerifyResponse>(AUTH_API.GOOGLE_OAUTH_VERIFY, {
+    method: 'POST',
+    body: {
+      fcm_token: backendPayload.fcm_token,
+      provider_token: backendPayload.provider_token,
+    } as any,
+  });
+
+  console.log('[auth][google] backend verify response', response);
+
+  const session = createAuthenticatedSocialSessionFromUser({
+    displayName: payload.displayName ?? buildDisplayNameFromSupabaseUser(supabaseUser),
+    method: 'google',
+    user: response.data.user,
+  });
+
+  await persistAuthSession(session, response.token);
 
   return {
     response,
     session,
   };
+}
+
+export async function verifyLinkedInTokenWithApi({
+  displayName,
+  fcmToken,
+  providerToken,
+}: {
+  displayName?: string | null;
+  fcmToken?: string | null;
+  providerToken: string;
+}): Promise<SessionActionResult<LinkedInOAuthVerifyResponse>> {
+  const backendPayload = normalizeSocialLoginPayload({
+    fcmToken,
+    provider: 'linkedin',
+    providerToken,
+  });
+
+  console.log('[auth][linkedin] oauth success payload', backendPayload);
+
+  const response = await apiFetch<LinkedInOAuthVerifyResponse>(AUTH_API.LINKEDIN_OAUTH_VERIFY, {
+    method: 'POST',
+    body: {
+      fcm_token: backendPayload.fcm_token,
+      provider_token: backendPayload.provider_token,
+    } as any,
+  });
+
+  console.log('[auth][linkedin] backend verify response', response);
+
+  const session = createAuthenticatedSocialSessionFromUser({
+    displayName: buildDisplayNameFromAuthUser(response.data.user, displayName),
+    method: 'linkedin',
+    user: response.data.user,
+  });
+
+  await persistAuthSession(session, response.token);
+
+  return {
+    response,
+    session,
+  };
+}
+
+export async function exchangeLinkedInCodeWithApi({
+  code,
+  displayName,
+  fcmToken,
+  redirectUri,
+}: {
+  code: string;
+  displayName?: string | null;
+  fcmToken?: string | null;
+  redirectUri: string;
+}): Promise<SessionActionResult<LinkedInOAuthVerifyResponse>> {
+  const payload = {
+    code,
+    fcm_token: fcmToken?.trim() || mockFCMToken,
+    redirect_uri: redirectUri,
+  };
+
+  console.log('[auth][linkedin] backend exchange payload', payload);
+
+  const response = await apiFetch<LinkedInOAuthVerifyResponse>(AUTH_API.LINKEDIN_OAUTH_EXCHANGE_CODE, {
+    method: 'POST',
+    body: payload as any,
+  });
+
+  console.log('[auth][linkedin] backend exchange response', response);
+
+  const session = createAuthenticatedSocialSessionFromUser({
+    displayName: buildDisplayNameFromAuthUser(response.data.user, displayName),
+    method: 'linkedin',
+    user: response.data.user,
+  });
+
+  await persistAuthSession(session, response.token);
+
+  return {
+    response,
+    session,
+  };
+}
+
+export function getAuthApiPath(key: keyof typeof AUTH_API) {
+  return AUTH_API[key];
 }
 
 export async function registerWithApi(

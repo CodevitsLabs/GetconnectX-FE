@@ -64,7 +64,7 @@ async function getCurrentIdentity() {
   const session = await getSupabaseSession();
 
   if (!session?.user) {
-    throw new Error('Supabase chat requires an authenticated Google session.');
+    throw new Error('Supabase chat requires an authenticated social session.');
   }
 
   const email = session.user.email?.trim().toLowerCase() ?? 'connectx-member';

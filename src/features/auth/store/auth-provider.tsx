@@ -13,7 +13,7 @@ import {
 import { isAuthBypassEnabled } from '../config/auth-config';
 import {
   clearPersistedAuth,
-  createGoogleAuthSessionFromSupabaseSession,
+  createSocialAuthSessionFromSupabaseSession,
   enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
@@ -30,8 +30,15 @@ import {
 } from '../services/auth-service';
 import type { LoginPayload } from '../services/auth-service';
 import { signInWithGoogleToken } from '../services/google-auth-service';
+import {
+  clearPendingLinkedInAuth,
+  completeLinkedInOAuth as completeLinkedInOAuthFlow,
+  getPendingLinkedInAuth,
+  startLinkedInOAuth,
+} from '../services/linkedin-auth-service';
 import type {
   AuthPhase,
+  AuthMethod,
   AuthSession,
   RegisterPayload,
   VerifyEmailPayload,
@@ -53,13 +60,51 @@ type AuthContextValue = {
   resendWhatsappOtp: () => ReturnType<typeof resendWhatsappOtpWithApi>;
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpWithMock>;
   sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpWithApi>;
-  signInWithGoogle: () => ReturnType<typeof loginWithGoogleSupabase>;
+  signInWithGoogle: (fcmToken?: string | null) => ReturnType<typeof loginWithGoogleSupabase>;
+  signInWithLinkedIn: () => ReturnType<typeof startLinkedInOAuth>;
+  completeLinkedInOAuth: (url: string) => Promise<void>;
   signOut: () => Promise<void>;
   verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpWithMock>;
   verifyWhatsappOtp: (payload: VerifyWhatsappPayload) => ReturnType<typeof verifyWhatsappOtpWithApi>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
+
+function isSupabaseSocialMethod(method: AuthMethod | null | undefined): method is 'google' | 'linkedin' {
+  return method === 'google' || method === 'linkedin';
+}
+
+function shouldReuseStoredSocialSession(
+  storedSession: AuthSession | null,
+  supabaseSession: Awaited<ReturnType<typeof getSupabaseSession>>
+) {
+  if (!storedSession || storedSession.method !== 'linkedin' || !supabaseSession?.user) {
+    return false;
+  }
+
+  const storedUserId = storedSession.user?.id?.trim();
+
+  if (!storedUserId) {
+    return false;
+  }
+
+  return storedUserId === supabaseSession.user.id;
+}
+
+function resolveSessionFromSupabaseState(
+  supabaseSession: NonNullable<Awaited<ReturnType<typeof getSupabaseSession>>>,
+  storedSession: AuthSession | null,
+  preferLinkedIn: boolean
+) : AuthSession {
+  if (shouldReuseStoredSocialSession(storedSession, supabaseSession)) {
+    return storedSession as AuthSession;
+  }
+
+  return createSocialAuthSessionFromSupabaseSession(
+    supabaseSession,
+    preferLinkedIn ? 'linkedin' : undefined
+  );
+}
 
 function isRecoverableSupabaseSessionError(error: unknown) {
   if (!(error instanceof Error)) {
@@ -92,9 +137,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   }, [session]);
 
   const signOut = React.useCallback(async () => {
-    const shouldSignOutSupabase = session?.method === 'google';
+    const shouldSignOutSupabase = isSupabaseSocialMethod(session?.method);
 
-    await clearPersistedAuth();
+    await Promise.all([clearPersistedAuth(), clearPendingLinkedInAuth()]);
 
     if (shouldSignOutSupabase) {
       await signOutSupabase();
@@ -156,18 +201,27 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
     const hydrate = async () => {
       try {
-        const supabaseSession = await getSupabaseSession();
+        const [{ token, session: storedSession }, pendingLinkedInAuth, supabaseSession] = await Promise.all([
+          getPersistedAuthState(),
+          getPendingLinkedInAuth(),
+          getSupabaseSession(),
+        ]);
 
         if (!isActive) {
           return;
         }
 
         if (supabaseSession?.user) {
-          const nextSession = createGoogleAuthSessionFromSupabaseSession(supabaseSession);
+          const nextSession = resolveSessionFromSupabaseState(
+            supabaseSession,
+            storedSession,
+            Boolean(pendingLinkedInAuth)
+          );
 
           await Promise.all([
             replaceStoredSession(nextSession),
             syncSupabaseRealtimeAuth(supabaseSession),
+            pendingLinkedInAuth ? clearPendingLinkedInAuth() : Promise.resolve(),
           ]);
 
           if (!isActive) {
@@ -177,12 +231,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
           setSession(nextSession);
           setAuthPhase(nextSession.authPhase);
           setIsHydrated(true);
-          return;
-        }
-
-        const { token, session: storedSession } = await getPersistedAuthState();
-
-        if (!isActive) {
           return;
         }
 
@@ -232,7 +280,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     configureApiClient({
       getAccessToken: getStoredToken,
       onUnauthorized: async () => {
-        if (session?.method === 'google') {
+        if (isSupabaseSocialMethod(session?.method)) {
           return;
         }
 
@@ -263,7 +311,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, nextSupabaseSession) => {
       if (event === 'SIGNED_OUT') {
-        if (sessionRef.current?.method === 'google') {
+        if (isSupabaseSocialMethod(sessionRef.current?.method)) {
           await clearPersistedAuth();
           setSession(null);
           setAuthPhase('signed_out');
@@ -276,11 +324,20 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') &&
         nextSupabaseSession?.user
       ) {
-        const nextSession = createGoogleAuthSessionFromSupabaseSession(nextSupabaseSession);
+        const [{ session: storedSession }, pendingLinkedInAuth] = await Promise.all([
+          getPersistedAuthState(),
+          getPendingLinkedInAuth(),
+        ]);
+        const nextSession = resolveSessionFromSupabaseState(
+          nextSupabaseSession,
+          storedSession,
+          Boolean(pendingLinkedInAuth)
+        );
 
         await Promise.all([
           replaceStoredSession(nextSession),
           syncSupabaseRealtimeAuth(nextSupabaseSession),
+          pendingLinkedInAuth ? clearPendingLinkedInAuth() : Promise.resolve(),
         ]);
         setSession(nextSession);
         setAuthPhase(nextSession.authPhase);
@@ -302,12 +359,13 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     []
   );
 
-  const signInWithGoogle = React.useCallback(async () => {
+  const signInWithGoogle = React.useCallback(async (fcmToken?: string | null) => {
     const googleResult = await signInWithGoogleToken();
     const result = await loginWithGoogleSupabase({
       accessToken: googleResult.accessToken,
       displayName: googleResult.displayName,
       email: googleResult.email,
+      fcmToken,
       idToken: googleResult.idToken,
     });
 
@@ -315,6 +373,29 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     setAuthPhase(result.session.authPhase);
 
     return result;
+  }, []);
+
+  const signInWithLinkedIn = React.useCallback(async () => {
+    return startLinkedInOAuth();
+  }, []);
+
+  const completeLinkedInOAuth = React.useCallback(async (url: string) => {
+    console.log('[auth][linkedin] completing oauth callback');
+
+    const supabaseSession = await completeLinkedInOAuthFlow(url);
+    const nextSession = createSocialAuthSessionFromSupabaseSession(
+      supabaseSession,
+      'linkedin'
+    );
+
+    await Promise.all([replaceStoredSession(nextSession), clearPendingLinkedInAuth()]);
+    setSession(nextSession);
+    setAuthPhase(nextSession.authPhase);
+
+    console.log('[auth][linkedin] frontend session established', {
+      authPhase: nextSession.authPhase,
+      email: nextSession.email,
+    });
   }, []);
 
   const register = React.useCallback(
@@ -391,7 +472,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       sendEmailOtp,
       sendWhatsappOtp,
       session,
+      completeLinkedInOAuth,
       signInWithGoogle,
+      signInWithLinkedIn,
       signOut,
       verifyEmailOtp,
       verifyWhatsappOtp,
@@ -410,7 +493,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       sendEmailOtp,
       sendWhatsappOtp,
       session,
+      completeLinkedInOAuth,
       signInWithGoogle,
+      signInWithLinkedIn,
       signOut,
       verifyEmailOtp,
       verifyWhatsappOtp,

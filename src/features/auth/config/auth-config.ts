@@ -56,6 +56,16 @@ export function getGoogleAuthConfig() {
   };
 }
 
+export function getLinkedInAuthConfig() {
+  return {
+    clientId: getRequiredEnv(
+      process.env.EXPO_PUBLIC_LINKEDIN_CLIENT_ID,
+      'EXPO_PUBLIC_LINKEDIN_CLIENT_ID',
+      'LinkedIn Sign-In'
+    ),
+  };
+}
+
 export function getSupabaseConfig() {
   return {
     anonKey: getRequiredEnv(

@@ -1,4 +1,4 @@
-export type AuthMethod = 'email' | 'google' | 'apple' | 'developer-bypass';
+export type AuthMethod = 'email' | 'google' | 'linkedin' | 'apple' | 'developer-bypass';
 
 export type AuthPhase =
   | 'signed_out'

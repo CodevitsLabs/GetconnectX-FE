@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '@features/auth';
+import type { AuthMethod } from '@features/auth/types/auth.types';
 import { AppButton, AppText } from '@shared/components';
 
 import type { ChatMessage, ChatRoom } from '../domain/models';
@@ -196,6 +197,10 @@ function ChatExperimentNotice() {
   );
 }
 
+function hasSupabaseChatAccess(method: AuthMethod | null | undefined) {
+  return method === 'google';
+}
+
 function ChatAvatar({
   conversation,
   size = 56,
@@ -286,7 +291,7 @@ function ConversationPanel({
 }) {
   const { session } = useAuth();
   const router = useRouter();
-  const isChatEnabled = session?.method === 'google';
+  const isChatEnabled = hasSupabaseChatAccess(session?.method);
   const [draftMessage, setDraftMessage] = React.useState('');
   const roomId = conversation?.id ?? null;
   const messagesQuery = useRoomMessages(roomId, isChatEnabled && Boolean(roomId));
@@ -561,7 +566,7 @@ function ConversationPanel({
 export function ChatListScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
   const { session } = useAuth();
-  const isChatEnabled = session?.method === 'google';
+  const isChatEnabled = hasSupabaseChatAccess(session?.method);
   const conversationsQuery = useChatRooms(isChatEnabled);
   const conversations = React.useMemo(() => conversationsQuery.data ?? [], [conversationsQuery.data]);
   const [selectedConversationId, setSelectedConversationId] = React.useState<string | null>(null);
@@ -662,7 +667,7 @@ export function ChatListScreen() {
             </AppText>
             <AppText align="center" tone="muted">
               No Supabase rooms are available for this user yet. Seed a test room and add both
-              Google users to `chat_room_members`.
+              social-auth users to `chat_room_members`.
             </AppText>
           </View>
         ) : null}
@@ -676,7 +681,7 @@ export function ChatListScreen() {
 export function ChatConversationScreen({ conversationId }: { conversationId: string }) {
   const router = useRouter();
   const { session } = useAuth();
-  const isChatEnabled = session?.method === 'google';
+  const isChatEnabled = hasSupabaseChatAccess(session?.method);
   const conversationsQuery = useChatRooms(isChatEnabled);
   const conversation = conversationsQuery.data?.find((room) => room.id === conversationId) ?? null;
 

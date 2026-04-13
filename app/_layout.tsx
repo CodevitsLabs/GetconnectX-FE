@@ -38,6 +38,7 @@ export default function RootLayout() {
                   name="(tabs)"
                   options={{ headerShown: false, gestureEnabled: false }}
                 />
+                <Stack.Screen name="oauth" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="modal"
                   options={{ presentation: 'modal', title: 'Design Principles' }}
