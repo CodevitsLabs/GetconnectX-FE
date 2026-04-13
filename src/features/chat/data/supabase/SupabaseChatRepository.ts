@@ -20,7 +20,7 @@ import {
   type MessageRow,
 } from './mappers';
 
-const MESSAGE_PAGE_SIZE = 30;
+const MESSAGE_PAGE_SIZE = 5;
 
 type RoomChannelState = {
   channel: RealtimeChannel;
@@ -94,7 +94,7 @@ class SupabaseChatRepository implements ChatRepository {
     const { data, error } = await supabase
       .from('conversation_summaries')
       .select(
-        'conversation_id, kind, last_message_at, last_message_text, title, unread_count, updated_at'
+        'conversation_id, kind, last_message_at, last_message_text, participant_headline, participant_name, participant_photo_url, participant_user_id, title, unread_count, updated_at'
       )
       .eq('user_id', userId);
 
@@ -110,7 +110,9 @@ class SupabaseChatRepository implements ChatRepository {
   async getMessages(roomId: string, cursor?: string): Promise<PaginatedMessages> {
     let query = supabase
       .from('messages')
-      .select('id, room_id, sender_id, client_id, content, created_at')
+      .select(
+        'id, room_id, sender_id, client_id, content, created_at, media_mime_type, media_name, media_size_bytes, media_url, message_type, thumbnail_url'
+      )
       .eq('room_id', roomId)
       .order('created_at', { ascending: false })
       .limit(MESSAGE_PAGE_SIZE);
@@ -151,7 +153,9 @@ class SupabaseChatRepository implements ChatRepository {
         client_id: input.clientId ?? null,
         content: normalizedContent,
       })
-      .select('id, room_id, sender_id, client_id, content, created_at')
+      .select(
+        'id, room_id, sender_id, client_id, content, created_at, media_mime_type, media_name, media_size_bytes, media_url, message_type, thumbnail_url'
+      )
       .single();
 
     if (error) {

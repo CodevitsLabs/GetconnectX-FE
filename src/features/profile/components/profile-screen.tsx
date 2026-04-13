@@ -5,6 +5,7 @@ import { Stack } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
 import { AppCard, AppText } from '@shared/components';
+import { useAuthContext } from '@features/auth/store/auth-provider';
 
 import { useMyProfile } from '../hooks/use-profile';
 import { mockMyProfileResponse } from '../mock/profile.mock';
@@ -197,6 +198,7 @@ function Header({ profile }: { profile: MyProfileData }) {
 }
 
 export function ProfileScreen() {
+  const { signOut } = useAuthContext();
   const myProfileQuery = useMyProfile();
   const [isEditModalVisible, setIsEditModalVisible] = React.useState(false);
   const myProfileResponse = myProfileQuery.data;
@@ -290,6 +292,16 @@ export function ProfileScreen() {
         ) : null}
 
         {highlightsSection?.items?.length ? <HighlightList items={highlightsSection.items} /> : null}
+
+        <Pressable
+          className="mt-4 flex-row items-center justify-center gap-2 rounded-[16px] border py-4"
+          onPress={() => signOut()}
+          style={{ backgroundColor: '#1C1C21', borderColor: 'rgba(255, 90, 103, 0.2)' }}>
+          <Ionicons color="#FF5A67" name="log-out-outline" size={20} />
+          <AppText className="text-[15px] font-semibold" style={{ color: '#FF5A67' }}>
+            Sign Out
+          </AppText>
+        </Pressable>
       </ScrollView>
 
       {isEditModalVisible ? (

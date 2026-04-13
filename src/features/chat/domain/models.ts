@@ -5,11 +5,15 @@ export type ChatRoom = {
   kind: ChatRoomKind;
   lastMessageAt: string;
   preview: string;
+  photoUrl?: string | null;
+  headline?: string | null;
+  participantUserId?: string | null;
   title: string;
   unreadCount: number;
 };
 
 export type ChatMessageStatus = 'sending' | 'sent' | 'failed';
+export type ChatMessageType = 'text' | 'image' | 'video' | 'file';
 
 export type ChatMessage = {
   id: string;
@@ -17,7 +21,13 @@ export type ChatMessage = {
   senderId: string;
   content: string;
   createdAt: string;
+  mediaMimeType?: string | null;
+  mediaName?: string | null;
+  mediaSizeBytes?: number | null;
+  mediaUrl?: string | null;
+  messageType: ChatMessageType;
   status?: ChatMessageStatus;
+  thumbnailUrl?: string | null;
   clientId?: string | null;
 };
 
