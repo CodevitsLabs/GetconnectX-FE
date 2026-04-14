@@ -2,7 +2,47 @@ import type {
   MatchAnalysisResponse,
   MatchListItem,
   MatchesListResponse,
+  LikesYouListItem,
 } from '../types/matches.types';
+
+const likesYouBlueprints = [
+  {
+    likeId: 'like_201',
+    likedAt: '2026-04-13T03:20:00Z',
+    userId: 'usr_like_201',
+    name: 'Sinta Prameswari',
+    photoUrl: 'https://i.pravatar.cc/512?img=47',
+    headline: 'Brand Strategist',
+    location: 'Jakarta, Indonesia',
+  },
+  {
+    likeId: 'like_202',
+    likedAt: '2026-04-13T08:45:00Z',
+    userId: 'usr_like_202',
+    name: 'Daniel Koh',
+    photoUrl: 'https://i.pravatar.cc/512?img=15',
+    headline: 'Founding Engineer',
+    location: 'Singapore',
+  },
+  {
+    likeId: 'like_203',
+    likedAt: '2026-04-14T01:10:00Z',
+    userId: 'usr_like_203',
+    name: 'Alya Rahman',
+    photoUrl: 'https://i.pravatar.cc/512?img=23',
+    headline: 'Product Designer',
+    location: 'Bandung, Indonesia',
+  },
+  {
+    likeId: 'like_204',
+    likedAt: '2026-04-14T05:05:00Z',
+    userId: 'usr_like_204',
+    name: 'Marcus Tan',
+    photoUrl: null,
+    headline: 'Growth Lead',
+    location: 'Kuala Lumpur, Malaysia',
+  },
+] as const;
 
 const matchBlueprints = [
   {
@@ -95,6 +135,20 @@ export const mockMatchesListResponse: MatchesListResponse = {
   success: true,
   message: 'Matches fetched successfully',
   data: {
+    likesYou: {
+      items: likesYouBlueprints.map<LikesYouListItem>((item) => ({
+        likeId: item.likeId,
+        likedAt: item.likedAt,
+        user: {
+          userId: item.userId,
+          name: item.name,
+          photoUrl: item.photoUrl,
+          headline: item.headline,
+          location: item.location,
+        },
+      })),
+      totalNew: likesYouBlueprints.length,
+    },
     items: matchBlueprints.map<MatchListItem>((item) => ({
       matchId: item.matchId,
       status: item.status,

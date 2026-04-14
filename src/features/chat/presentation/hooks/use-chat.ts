@@ -13,6 +13,7 @@ import {
   getConversationSummaries,
   getChatMessages,
   markConversationRead,
+  sendChatImageMessage,
   sendChatMessage,
   setRoomTyping,
   subscribeToConversationSummaries,
@@ -20,10 +21,12 @@ import {
   subscribeToRoomPresence,
 } from '../../domain/usecases';
 import type {
+  ChatImageAsset,
   ChatMessage,
   ChatRoom,
   ChatPresenceMember,
   PaginatedMessages,
+  SendImageMessageInput,
   TypingState,
 } from '../../domain/models';
 import { supabaseChatRepository } from '../../data/supabase/SupabaseChatRepository';
@@ -123,6 +126,62 @@ function upsertMessageInPages(
   }
 
   return updateLatestMessagePage(current, (items) => upsertMessage(items, nextMessage)) ?? current;
+}
+
+function createOptimisticMutationContext(
+  queryClient: ReturnType<typeof useQueryClient>,
+  roomId: string,
+  optimisticMessage: ChatMessage
+) {
+  return queryClient.cancelQueries({ queryKey: chatQueryKeys.messages(roomId) }).then(() => {
+    const previousMessages = queryClient.getQueryData<RoomMessagesCache>(
+      chatQueryKeys.messages(roomId)
+    );
+
+    queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+      upsertMessageInPages(current, optimisticMessage)
+    );
+
+    return {
+      optimisticMessage,
+      previousMessages,
+    };
+  });
+}
+
+function markOptimisticMessageAsFailed(
+  queryClient: ReturnType<typeof useQueryClient>,
+  roomId: string,
+  optimisticMessage: ChatMessage
+) {
+  queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+    updateLatestMessagePage(current, (items) =>
+      items.map((message) =>
+        message.id === optimisticMessage.id ? { ...message, status: 'failed' as const } : message
+      )
+    ) ?? current
+  );
+}
+
+function replaceOptimisticMessage(
+  queryClient: ReturnType<typeof useQueryClient>,
+  roomId: string,
+  savedMessage: ChatMessage,
+  optimisticMessage?: ChatMessage
+) {
+  queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
+    updateLatestMessagePage(current, (messages) => {
+      const optimisticId = optimisticMessage?.id;
+      const optimisticClientId = optimisticMessage?.clientId;
+      const filteredMessages = messages.filter(
+        (message) =>
+          message.id !== optimisticId &&
+          !(message.clientId && optimisticClientId && message.clientId === optimisticClientId)
+      );
+
+      return upsertMessage(filteredMessages, savedMessage);
+    }) ?? createInitialRoomMessages(savedMessage)
+  );
 }
 
 export function useChatRooms(enabled = true) {
@@ -234,54 +293,80 @@ export function useSendChatMessage(roomId: string | null) {
         clientId,
       };
 
-      await queryClient.cancelQueries({ queryKey: chatQueryKeys.messages(roomId) });
-
-      const previousMessages = queryClient.getQueryData<RoomMessagesCache>(
-        chatQueryKeys.messages(roomId)
-      );
-
-      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
-        upsertMessageInPages(current, optimisticMessage)
-      );
-
-      return {
-        optimisticMessage,
-        previousMessages,
-      };
+      return createOptimisticMutationContext(queryClient, roomId, optimisticMessage);
     },
     onError: (_error, _content, context) => {
       if (!roomId || !context?.optimisticMessage) {
         return;
       }
 
-      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
-        updateLatestMessagePage(current, (items) =>
-          items.map((message) =>
-            message.id === context.optimisticMessage.id
-              ? { ...message, status: 'failed' as const }
-              : message
-          )
-        ) ?? current
-      );
+      markOptimisticMessageAsFailed(queryClient, roomId, context.optimisticMessage);
     },
     onSuccess: (savedMessage, _content, context) => {
       if (!roomId) {
         return;
       }
 
-      queryClient.setQueryData<RoomMessagesCache>(chatQueryKeys.messages(roomId), (current) =>
-        updateLatestMessagePage(current, (messages) => {
-          const optimisticId = context?.optimisticMessage?.id;
-          const optimisticClientId = context?.optimisticMessage?.clientId;
-          const filteredMessages = messages.filter(
-            (message) =>
-              message.id !== optimisticId &&
-              !(message.clientId && optimisticClientId && message.clientId === optimisticClientId)
-          );
+      replaceOptimisticMessage(queryClient, roomId, savedMessage, context?.optimisticMessage);
+    },
+  });
+}
 
-          return upsertMessage(filteredMessages, savedMessage);
-        }) ?? createInitialRoomMessages(savedMessage)
-      );
+export function useSendChatImageMessage(roomId: string | null) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: SendImageMessageInput) => {
+      if (!roomId) {
+        throw new Error('Pick a room before sending a message.');
+      }
+
+      if (!session?.user?.id) {
+        throw new Error('A signed-in chat user is required to send messages.');
+      }
+
+      return sendChatImageMessage(supabaseChatRepository, {
+        ...input,
+        roomId,
+      });
+    },
+    onMutate: async (input: SendImageMessageInput & { image: ChatImageAsset }) => {
+      if (!roomId || !session?.user?.id) {
+        return null;
+      }
+
+      const optimisticMessage: ChatMessage = {
+        id: `optimistic:${input.clientId}`,
+        roomId,
+        senderId: session.user.id,
+        content: input.content?.trim() ?? '',
+        createdAt: new Date().toISOString(),
+        mediaMimeType: input.image.mimeType ?? 'image/jpeg',
+        mediaName: input.image.fileName ?? null,
+        mediaSizeBytes: input.image.fileSize ?? null,
+        mediaUrl: input.image.uri,
+        messageType: 'image',
+        status: 'sending',
+        thumbnailUrl: input.image.uri,
+        clientId: input.clientId,
+      };
+
+      return createOptimisticMutationContext(queryClient, roomId, optimisticMessage);
+    },
+    onError: (_error, _input, context) => {
+      if (!roomId || !context?.optimisticMessage) {
+        return;
+      }
+
+      markOptimisticMessageAsFailed(queryClient, roomId, context.optimisticMessage);
+    },
+    onSuccess: (savedMessage, _input, context) => {
+      if (!roomId) {
+        return;
+      }
+
+      replaceOptimisticMessage(queryClient, roomId, savedMessage, context?.optimisticMessage);
     },
   });
 }

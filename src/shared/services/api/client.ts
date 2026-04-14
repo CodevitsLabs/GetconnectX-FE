@@ -26,6 +26,10 @@ export function configureApiClient(config: ApiClientAuthConfig) {
   };
 }
 
+export async function getApiAccessToken() {
+  return apiClientAuthConfig.getAccessToken?.() ?? null;
+}
+
 function isPlainJsonBody(value: unknown): value is Record<string, unknown> | unknown[] {
   if (!value || typeof value !== 'object') {
     return false;

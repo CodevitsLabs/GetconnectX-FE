@@ -63,6 +63,14 @@ function LockedConnectCard({ photoUrl }: { photoUrl: string | null }) {
   );
 }
 
+function formatLikesYouCount(totalNew: number) {
+  if (totalNew <= 0) {
+    return '0 new';
+  }
+
+  return `${totalNew} new`;
+}
+
 function MatchRow({
   match,
   onOpenAnalysis,
@@ -123,12 +131,13 @@ export function MatchesScreen() {
   const matchesQuery = useMatchesList({ limit: 10, page: 1, status: 'active' });
 
   const usingFallback = matchesQuery.isError;
-  const matches = usingFallback
-    ? mockMatchesListResponse.data.items
-    : (matchesQuery.data?.data.items ?? []);
-
-  const lockedConnects = Array.from({ length: 3 }, (_, index) => matches[index] ?? null);
+  const responseData = usingFallback ? mockMatchesListResponse.data : matchesQuery.data?.data;
+  const matches = responseData?.items ?? [];
+  const likesYou = responseData?.likesYou?.items ?? [];
+  const likesYouCount = responseData?.likesYou?.totalNew ?? likesYou.length;
+  const lockedConnects = Array.from({ length: 3 }, (_, index) => likesYou[index] ?? null);
   const matchCountLabel = `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`;
+  const likesYouCountLabel = formatLikesYouCount(likesYouCount);
 
   return (
     <View className="flex-1 bg-[#242322]" style={{ paddingTop: insets.top }}>
@@ -149,16 +158,16 @@ export function MatchesScreen() {
 
               <View className="rounded-full bg-[#5A3C23] px-4 py-2">
                 <AppText className="text-[14px] font-semibold uppercase tracking-[0.3px] text-[#FFB35E]">
-                  12 new
+                  {likesYouCountLabel}
                 </AppText>
               </View>
             </View>
 
             <View className="flex-row gap-4">
-              {lockedConnects.map((match, index) => (
+              {lockedConnects.map((like, index) => (
                 <LockedConnectCard
-                  key={match ? `locked-${match.matchId}` : `locked-placeholder-${index}`}
-                  photoUrl={match?.user.photoUrl ?? null}
+                  key={like ? `locked-${like.likeId}` : `locked-placeholder-${index}`}
+                  photoUrl={like?.user.photoUrl ?? null}
                 />
               ))}
             </View>

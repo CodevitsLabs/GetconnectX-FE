@@ -37,10 +37,40 @@ export type PaginatedMessages = {
   nextCursor: string | null;
 };
 
-export type SendMessageInput = {
+export type SendTextMessageInput = {
   roomId: string;
   content: string;
   clientId?: string | null;
+  messageType?: 'text';
+};
+
+export type SendStoredImageMessageInput = {
+  roomId: string;
+  content?: string;
+  clientId?: string | null;
+  mediaMimeType?: string | null;
+  mediaName?: string | null;
+  mediaSizeBytes?: number | null;
+  mediaUrl: string;
+  messageType: 'image';
+  thumbnailUrl?: string | null;
+};
+
+export type SendMessageInput = SendTextMessageInput | SendStoredImageMessageInput;
+
+export type ChatImageAsset = {
+  uri: string;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
+};
+
+export type SendImageMessageInput = {
+  roomId: string;
+  content?: string;
+  clientId?: string | null;
+  clientUploadId?: string | null;
+  image: ChatImageAsset;
 };
 
 export type TypingState = {

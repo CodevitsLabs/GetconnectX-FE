@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,11 +29,16 @@ import {
   useRoomPresence,
   useRoomRealtime,
   useRoomTyping,
+  useSendChatImageMessage,
   useSendChatMessage,
 } from '../presentation/hooks/use-chat';
 
 function createClientId(userId: string) {
   return `${userId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createClientUploadId(userId: string) {
+  return `upload:${createClientId(userId)}`;
 }
 
 function formatRelativeTime(value: string) {
@@ -304,11 +310,13 @@ function ConversationPanel({
   const messagesQuery = useRoomMessages(roomId, isChatEnabled && Boolean(roomId));
   const markConversationReadMutation = useMarkConversationRead(roomId);
   const sendMessageMutation = useSendChatMessage(roomId);
+  const sendImageMessageMutation = useSendChatImageMessage(roomId);
   const { typingState } = useRoomRealtime(roomId, isChatEnabled && Boolean(roomId));
   const presence = useRoomPresence(roomId, isChatEnabled && Boolean(roomId));
   const listRef = React.useRef<FlatList<ChatMessage>>(null);
   const hasPerformedInitialScrollRef = React.useRef(false);
   const isNearBottomRef = React.useRef(true);
+  const isSendingMessage = sendMessageMutation.isPending || sendImageMessageMutation.isPending;
   const messages = React.useMemo(
     () => (messagesQuery.data?.pages ?? []).flatMap((page) => [...page.items].reverse()),
     [messagesQuery.data]
@@ -367,7 +375,7 @@ function ConversationPanel({
   const handleSend = React.useCallback(async () => {
     const body = draftMessage.trim();
 
-    if (!body || sendMessageMutation.isPending || !roomId) {
+    if (!body || isSendingMessage || !roomId) {
       return;
     }
 
@@ -377,7 +385,48 @@ function ConversationPanel({
     });
     setDraftMessage('');
     setTimeout(() => listRef.current?.scrollToOffset({ animated: true, offset: 0 }), 100);
-  }, [draftMessage, roomId, sendMessageMutation, session?.user?.id]);
+  }, [draftMessage, isSendingMessage, roomId, sendMessageMutation, session?.user?.id]);
+
+  const handlePickImage = React.useCallback(async () => {
+    if (!roomId || isSendingMessage) {
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      allowsMultipleSelection: false,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      selectionLimit: 1,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+
+    if (!asset?.uri) {
+      Alert.alert('Image unavailable', 'The selected image could not be read.');
+      return;
+    }
+
+    await sendImageMessageMutation.mutateAsync({
+      clientId: createClientId(session?.user?.id ?? 'anonymous'),
+      clientUploadId: createClientUploadId(session?.user?.id ?? 'anonymous'),
+      content: draftMessage.trim(),
+      image: {
+        fileName: asset.fileName ?? null,
+        fileSize: asset.fileSize ?? null,
+        mimeType: asset.mimeType ?? null,
+        uri: asset.uri,
+      },
+      roomId,
+    });
+
+    setDraftMessage('');
+    setTimeout(() => listRef.current?.scrollToOffset({ animated: true, offset: 0 }), 100);
+  }, [draftMessage, isSendingMessage, roomId, sendImageMessageMutation, session?.user?.id]);
 
   const renderMessage = React.useCallback(
     ({ item: message }: ListRenderItemInfo<ChatMessage>) => {
@@ -557,8 +606,20 @@ function ConversationPanel({
           </AppText>
         ) : null}
 
+        {!(sendMessageMutation.error instanceof Error) && sendImageMessageMutation.error instanceof Error ? (
+          <AppText className="mb-2" tone="soft" variant="code">
+            Send failed: {sendImageMessageMutation.error.message}
+          </AppText>
+        ) : null}
+
         <View className="flex-row items-end gap-3">
-          <Pressable className="h-11 w-11 items-center justify-center rounded-full bg-transparent active:opacity-70">
+          <Pressable
+            className="h-11 w-11 items-center justify-center rounded-full bg-transparent active:opacity-70"
+            disabled={isSendingMessage || !roomId}
+            onPress={() => {
+              void handlePickImage();
+            }}
+            style={{ opacity: isSendingMessage || !roomId ? 0.45 : 1 }}>
             <Ionicons color="#9C9893" name="attach-outline" size={26} />
           </Pressable>
 
@@ -575,12 +636,12 @@ function ConversationPanel({
 
           <Pressable
             className="h-14 w-14 items-center justify-center rounded-full bg-[#FF9D3D] active:opacity-70"
-            disabled={!draftMessage.trim() || sendMessageMutation.isPending}
+            disabled={!draftMessage.trim() || isSendingMessage}
             onPress={() => void handleSend()}
             style={{
-              opacity: !draftMessage.trim() || sendMessageMutation.isPending ? 0.5 : 1,
+              opacity: !draftMessage.trim() || isSendingMessage ? 0.5 : 1,
             }}>
-            {sendMessageMutation.isPending ? (
+            {isSendingMessage ? (
               <ActivityIndicator color="#1F160C" size="small" />
             ) : (
               <Ionicons color="#1F160C" name="paper-plane-outline" size={24} />

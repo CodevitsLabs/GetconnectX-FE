@@ -3,6 +3,7 @@ import type {
   ConversationSummaryHandlers,
   PresenceHandlers,
   RoomSubscriptionHandlers,
+  SendImageMessageInput,
   SendMessageInput,
 } from '../models';
 
@@ -23,6 +24,13 @@ export function sendChatMessage(
   input: SendMessageInput
 ) {
   return repository.sendMessage(input);
+}
+
+export function sendChatImageMessage(
+  repository: ChatRepository,
+  input: SendImageMessageInput
+) {
+  return repository.sendImageMessage(input);
 }
 
 export function markConversationRead(

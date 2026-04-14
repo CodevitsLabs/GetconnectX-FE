@@ -2,6 +2,20 @@ export type MatchStatus = 'active' | 'expired';
 
 export type MatchesListStatusFilter = MatchStatus | 'all';
 
+export type MatchUserSummary = {
+  userId: string;
+  name: string;
+  photoUrl: string | null;
+  headline: string;
+  location: string;
+};
+
+export type LikesYouListItem = {
+  likeId: string;
+  likedAt: string;
+  user: MatchUserSummary;
+};
+
 export type MatchListItem = {
   matchId: string;
   status: MatchStatus;
@@ -11,13 +25,7 @@ export type MatchListItem = {
   hasMessaged: boolean;
   isOnline: boolean;
   conversationId: string | null;
-  user: {
-    userId: string;
-    name: string;
-    photoUrl: string | null;
-    headline: string;
-    location: string;
-  };
+  user: MatchUserSummary;
   fitSummary: {
     score: number;
     label: string;
@@ -33,6 +41,10 @@ export type MatchesListResponse = {
   success: boolean;
   message: string;
   data: {
+    likesYou: {
+      items: LikesYouListItem[];
+      totalNew: number;
+    };
     items: MatchListItem[];
     total: number;
     page: number;
@@ -49,13 +61,7 @@ export type MatchAnalysisResponse = {
     conversationId: string | null;
     status: MatchStatus;
     generatedAt: string;
-    user: {
-      userId: string;
-      name: string;
-      photoUrl: string | null;
-      headline: string;
-      location: string;
-    };
+    user: MatchUserSummary;
     analysis: {
       compatibilityScore: number;
       label: string;
