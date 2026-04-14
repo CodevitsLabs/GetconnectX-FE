@@ -1,6 +1,7 @@
 import type { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
+import { supabaseChatRepository } from '@features/chat/data/supabase/SupabaseChatRepository';
 import { ApiError, apiFetch } from '@shared/services/api';
 import { clearSupabaseSession, supabase } from '@shared/services/supabase/client';
 import type {
@@ -502,6 +503,7 @@ export async function loginWithGoogleSupabase(
     await Promise.allSettled([
       clearSupabaseSession(),
       clearPersistedAuth(),
+      supabaseChatRepository.clearRealtimeSubscriptions(),
     ]);
 
     if (verifyError instanceof ApiError) {

@@ -241,6 +241,15 @@ class SupabaseChatRepository implements ChatRepository {
   private roomStates = new Map<string, RoomChannelState>();
   private summaryStates = new Map<string, SummaryChannelState>();
 
+  async clearRealtimeSubscriptions() {
+    try {
+      await supabase.removeAllChannels();
+    } finally {
+      this.roomStates.clear();
+      this.summaryStates.clear();
+    }
+  }
+
   async reconnectRealtime() {
     const activeRoomIds = Array.from(this.roomStates.entries())
       .filter(([, state]) => state.handlers.size || state.presenceHandlers.size)

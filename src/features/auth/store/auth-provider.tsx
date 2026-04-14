@@ -109,6 +109,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       await signOutSupabase();
     }
 
+    await supabaseChatRepository.clearRealtimeSubscriptions();
+
     setAuthPhase('signed_out');
     setSession(null);
   }, [session?.method]);
@@ -217,6 +219,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         await Promise.allSettled([
           clearPersistedAuth(),
           clearSupabaseSession(),
+          supabaseChatRepository.clearRealtimeSubscriptions(),
           syncSupabaseRealtimeAuth(null),
         ]);
 
@@ -273,6 +276,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, nextSupabaseSession) => {
       if (event === 'SIGNED_OUT') {
+        await supabaseChatRepository.clearRealtimeSubscriptions();
+
         if (sessionRef.current?.method === 'google') {
           await clearPersistedAuth();
           setSession(null);
