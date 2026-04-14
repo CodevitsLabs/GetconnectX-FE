@@ -1379,6 +1379,17 @@ export function DiscoveryDeck() {
         />
       </View>
 
+      {actionError ? (
+        <AppCard
+          className="mt-3 rounded-[18px] border-[#6D3A32] bg-[#332320] px-4 py-3"
+          style={{ shadowColor: 'transparent' }}>
+          <AppText className="text-[#F7DDD8]" variant="bodyStrong">
+            Discovery action failed
+          </AppText>
+          <AppText className="mt-1 text-[#D9A49C]">{actionError}</AppText>
+        </AppCard>
+      ) : null}
+
       {Boolean(discoveryQuery.hasNextPage && discoveryQuery.isFetchingNextPage) ? (
         <AppText align="center" className="text-[10px]" tone="muted" variant="code">
           Loading more cards...

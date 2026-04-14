@@ -1,5 +1,6 @@
 import { ApiError, apiFetch } from '@shared/services/api';
 
+import { mockMatchesListResponse } from '../mock/matches.mock';
 import type {
   MatchAnalysisResponse,
   MatchesListQueryParams,
@@ -16,7 +17,22 @@ export const MATCHES_API = {
   SPOTLIGHT_ACTIVATE: '/api/v1/discovery/spotlight/activate',
 } as const;
 
+type MockMatchesListMode = 'success';
 type MockSpotlightActivationMode = 'success' | 'no_credit' | 'already_active';
+
+export function getMockMatchesListMode(): MockMatchesListMode | null {
+  const normalized = process.env.EXPO_PUBLIC_MOCK_MATCHES_LIST_RESPONSE?.trim().toLowerCase();
+
+  if (normalized === 'success') {
+    return normalized;
+  }
+
+  return null;
+}
+
+export function isMatchesListMockEnabled() {
+  return __DEV__ && getMockMatchesListMode() === 'success';
+}
 
 function getMockSpotlightActivationMode(): MockSpotlightActivationMode | null {
   const normalized = process.env.EXPO_PUBLIC_MOCK_SPOTLIGHT_ACTIVATION_RESPONSE?.trim().toLowerCase();
@@ -51,6 +67,20 @@ function buildMatchesListPath({ limit, page, status = 'active' }: MatchesListQue
 }
 
 export async function fetchMatchesList(params: MatchesListQueryParams = {}) {
+  if (isMatchesListMockEnabled()) {
+    const normalizedLimit = normalizeLimit(params.limit);
+    const page = params.page && params.page > 0 ? params.page : 1;
+
+    return {
+      ...mockMatchesListResponse,
+      data: {
+        ...mockMatchesListResponse.data,
+        limit: normalizedLimit,
+        page,
+      },
+    } satisfies MatchesListResponse;
+  }
+
   return apiFetch<MatchesListResponse>(buildMatchesListPath(params));
 }
 

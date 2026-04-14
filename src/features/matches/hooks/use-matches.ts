@@ -1,6 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { activateSpotlight, fetchMatchAnalysis, fetchMatchesList } from '../services/matches-service';
+import { mockMatchesListResponse } from '../mock/matches.mock';
+import {
+  activateSpotlight,
+  fetchMatchAnalysis,
+  fetchMatchesList,
+  isMatchesListMockEnabled,
+} from '../services/matches-service';
 import type {
   MatchAnalysisResponse,
   MatchesListQueryParams,
@@ -15,9 +21,23 @@ export const matchesQueryKeys = {
 };
 
 export function useMatchesList(params: MatchesListQueryParams = {}) {
+  const usingMockMatches = isMatchesListMockEnabled();
+
   return useQuery<MatchesListResponse>({
+    enabled: !usingMockMatches,
+    initialData: usingMockMatches
+      ? {
+          ...mockMatchesListResponse,
+          data: {
+            ...mockMatchesListResponse.data,
+            limit: params.limit ?? mockMatchesListResponse.data.limit,
+            page: params.page ?? mockMatchesListResponse.data.page,
+          },
+        }
+      : undefined,
     queryKey: matchesQueryKeys.list(params),
     queryFn: () => fetchMatchesList(params),
+    staleTime: usingMockMatches ? Number.POSITIVE_INFINITY : 0,
   });
 }
 
