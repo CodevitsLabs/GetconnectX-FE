@@ -6,6 +6,7 @@ import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 
 import { useAuth } from '../hooks/use-auth';
+import { useFcmToken } from '../hooks/use-fcm-token';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 import { getEmailError, getPasswordError } from '../utils/auth-validation';
 import { AuthShell } from './auth-shell';
@@ -15,6 +16,7 @@ import { AuthShell } from './auth-shell';
 export function RegisterScreen() {
   const router = useRouter();
   const { authPhase, isHydrated, register, session } = useAuth();
+  const fcmToken = useFcmToken();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [passwordConfirmation, setPasswordConfirmation] = React.useState('');
@@ -125,7 +127,7 @@ export function RegisterScreen() {
                   password,
                   password_confirmation: passwordConfirmation,
                   entity_type: null,
-                  fcm_token: '',
+                  fcm_token: fcmToken ?? '',
                 });
                 router.replace('/verify-email');
               } catch (error: unknown) {
