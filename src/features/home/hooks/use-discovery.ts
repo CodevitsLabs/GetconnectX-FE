@@ -99,7 +99,6 @@ export function useDiscoveryCards(
 
 export function useDiscoveryFilterOptions(mode: DiscoveryMode, enabled = true) {
   const usingMockFilterOptions = isDiscoveryFilterOptionsMockEnabled();
-  console.log("USINGGG")
 
   return useQuery<DiscoveryFilterOptionsResponse>({
     enabled,

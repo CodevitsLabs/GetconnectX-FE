@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  LayoutChangeEvent,
   Modal,
   Pressable,
   ScrollView,
@@ -159,6 +160,13 @@ function cloneDraftFilters(filters: DiscoveryAppliedFilters) {
   return JSON.parse(JSON.stringify(filters)) as DiscoveryAppliedFilters;
 }
 
+function clampRangeValue(value: number, min: number, max: number, step: number) {
+  const clampedValue = Math.min(max, Math.max(min, value));
+  const steppedValue = min + Math.round((clampedValue - min) / step) * step;
+
+  return Math.min(max, Math.max(min, steppedValue));
+}
+
 function OptionChip({
   active,
   label,
@@ -243,7 +251,28 @@ function RangeControl({
   const max = field.max ?? 100;
   const step = field.step ?? 1;
   const suffix = field.ui.suffix ?? '';
-  const nextValue = Math.max(min, Math.min(max, value));
+  const nextValue = clampRangeValue(value, min, max, step);
+  const [trackWidth, setTrackWidth] = React.useState(0);
+  const progress = (nextValue - min) / Math.max(max - min, 1);
+  const thumbOffset = Math.min(Math.max(progress * trackWidth - 12, 0), Math.max(trackWidth - 24, 0));
+
+  const handleTrackLayout = React.useCallback((event: LayoutChangeEvent) => {
+    setTrackWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const updateValueFromPosition = React.useCallback(
+    (locationX: number) => {
+      if (trackWidth <= 0) {
+        return;
+      }
+
+      const clampedX = Math.min(trackWidth, Math.max(0, locationX));
+      const rawValue = min + (clampedX / trackWidth) * (max - min);
+
+      onChange(clampRangeValue(rawValue, min, max, step));
+    },
+    [max, min, onChange, step, trackWidth]
+  );
 
   return (
     <View className="gap-3">
@@ -256,28 +285,62 @@ function RangeControl({
           {suffix}
         </AppText>
       </View>
-      <View className="flex-row items-center gap-3">
-        <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full border border-border bg-background"
-          onPress={() => onChange(Math.max(min, nextValue - step))}>
-          <Ionicons color="#D0D5DD" name="remove" size={18} />
-        </Pressable>
+      <View className="gap-2">
         <View
-          className="flex-1 rounded-full"
-          style={{ backgroundColor: '#15171C', height: 6, overflow: 'hidden' }}>
+          className="justify-center"
+          onLayout={handleTrackLayout}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={(event) => updateValueFromPosition(event.nativeEvent.locationX)}
+          onResponderMove={(event) => updateValueFromPosition(event.nativeEvent.locationX)}
+          onStartShouldSetResponder={() => true}
+          style={{ height: 30 }}>
+          <View
+            style={{
+              backgroundColor: '#15171C',
+              borderRadius: 999,
+              height: 6,
+              left: 0,
+              overflow: 'hidden',
+              position: 'absolute',
+              right: 0,
+              top: 12,
+            }}
+          />
           <View
             style={{
               backgroundColor: '#FF9A3E',
-              height: '100%',
-              width: `${((nextValue - min) / Math.max(max - min, 1)) * 100}%`,
+              borderRadius: 999,
+              height: 6,
+              left: 0,
+              position: 'absolute',
+              top: 12,
+              width: `${progress * 100}%`,
+            }}
+          />
+          <View
+            style={{
+              backgroundColor: '#FF9A3E',
+              borderColor: '#1B1D22',
+              borderRadius: 999,
+              borderWidth: 4,
+              height: 24,
+              left: thumbOffset,
+              position: 'absolute',
+              top: 3,
+              width: 24,
             }}
           />
         </View>
-        <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full border border-border bg-background"
-          onPress={() => onChange(Math.min(max, nextValue + step))}>
-          <Ionicons color="#D0D5DD" name="add" size={18} />
-        </Pressable>
+        <View className="flex-row items-center justify-between px-0.5">
+          <AppText className="text-[12px]" tone="muted">
+            {min}
+            {suffix}
+          </AppText>
+          <AppText className="text-[12px]" tone="muted">
+            {max}
+            {suffix}
+          </AppText>
+        </View>
       </View>
     </View>
   );

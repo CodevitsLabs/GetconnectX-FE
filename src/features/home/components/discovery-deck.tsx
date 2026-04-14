@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import * as Location from 'expo-location';
 import React from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -55,13 +56,16 @@ import { DiscoveryFilterSheet } from './discovery-filter-sheet';
 
 type SwipeDirection = 'left' | 'right';
 type SwipeActionIntent = SwipeActionRequest['action'];
+type DeviceCoordinates = {
+  latitude: number;
+  longitude: number;
+};
 
 const SWIPE_THRESHOLD = 120;
 const PRELOAD_THRESHOLD = 3;
 const DISCOVERY_PAGE_LIMIT = 10;
 const DEFAULT_FILTER_MODE: DiscoveryMode = 'joining_startups';
 const MATCH_TOAST_DURATION_MS = 2600;
-const MOCK_MATCH_SCORE_THRESHOLD = 92;
 
 const GOAL_ID_BY_MODE: Record<DiscoveryMode, DiscoveryGoalId> = {
   finding_cofounder: 'goal_finding_cofounder',
@@ -198,6 +202,10 @@ function getDefaultSectionValue(section: DiscoveryFilterSection) {
   return '';
 }
 
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function sanitizeFieldValue(field: DiscoveryFilterField, rawValue: unknown) {
   if (field.type === 'multi_select') {
     return Array.isArray(rawValue)
@@ -290,6 +298,30 @@ function sanitizeDiscoveryFilters(
     nextFilters[section.id] = normalized;
     return nextFilters;
   }, {});
+}
+
+function withDeviceCoordinates(
+  filters: DiscoveryAppliedFilters,
+  coordinates: DeviceCoordinates | null
+) {
+  if (!coordinates) {
+    return filters;
+  }
+
+  const locationAvailability = filters.locationAvailability;
+
+  if (!isRecordValue(locationAvailability)) {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    locationAvailability: {
+      ...locationAvailability,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+    },
+  };
 }
 
 function getGoalOptions(sections: DiscoveryFilterSection[], mode: DiscoveryMode) {
@@ -440,6 +472,7 @@ export function DiscoveryDeck() {
   const [sheetMode, setSheetMode] = React.useState<DiscoveryMode>(DEFAULT_FILTER_MODE);
   const [appliedMode, setAppliedMode] = React.useState<DiscoveryMode | null>(null);
   const [appliedFilters, setAppliedFilters] = React.useState<DiscoveryAppliedFilters>({});
+  const [deviceCoordinates, setDeviceCoordinates] = React.useState<DeviceCoordinates | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const nextCardScale = useSharedValue(0.96);
@@ -479,6 +512,10 @@ export function DiscoveryDeck() {
     () => sanitizeDiscoveryFilters(appliedFilters, appliedSections),
     [appliedFilters, appliedSections]
   );
+  const requestFilters = React.useMemo(
+    () => withDeviceCoordinates(sanitizedAppliedFilters, deviceCoordinates),
+    [deviceCoordinates, sanitizedAppliedFilters]
+  );
 
   const discoveryRequest = React.useMemo<Omit<DiscoveryCardsRequest, 'pagination'>>(() => {
     if (!appliedMode) {
@@ -491,10 +528,10 @@ export function DiscoveryDeck() {
       },
       filters: {
         goalId: GOAL_ID_BY_MODE[appliedMode],
-        ...sanitizedAppliedFilters,
+        ...requestFilters,
       },
     };
-  }, [appliedMode, sanitizedAppliedFilters]);
+  }, [appliedMode, requestFilters]);
 
   const discoveryQuery = useDiscoveryCards(discoveryRequest, DISCOVERY_PAGE_LIMIT);
   const rewindAction = useRewindAction();
@@ -837,13 +874,47 @@ export function DiscoveryDeck() {
           }
         }
 
+        const sanitizedNextFilters = sanitizeDiscoveryFilters(
+          nextFilters,
+          getFallbackFilterOptions(mode).data.sections
+        );
+        let nextDeviceCoordinates = deviceCoordinates;
+
+        if (isRecordValue(sanitizedNextFilters.locationAvailability)) {
+          try {
+            const existingPermission = await Location.getForegroundPermissionsAsync();
+            const permission =
+              existingPermission.status === Location.PermissionStatus.GRANTED
+                ? existingPermission
+                : await Location.requestForegroundPermissionsAsync();
+
+            if (permission.status === Location.PermissionStatus.GRANTED) {
+              const position =
+                (await Location.getLastKnownPositionAsync()) ??
+                (await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                }));
+
+              if (position?.coords) {
+                nextDeviceCoordinates = {
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                };
+                setDeviceCoordinates(nextDeviceCoordinates);
+              }
+            }
+          } catch (error) {
+            console.warn('Unable to attach device coordinates to discovery filters.', error);
+          }
+        }
+
         console.log('applyDiscoveryFilters payload', {
           context: {
             mode,
           },
           filters: {
             goalId: GOAL_ID_BY_MODE[mode],
-            ...sanitizeDiscoveryFilters(nextFilters, getFallbackFilterOptions(mode).data.sections),
+            ...withDeviceCoordinates(sanitizedNextFilters, nextDeviceCoordinates),
           },
         });
 
@@ -858,7 +929,7 @@ export function DiscoveryDeck() {
         setIsApplyingFilters(false);
       }
     },
-    [isConnectXProActive, presentPaywallIfNeeded, supported]
+    [deviceCoordinates, isConnectXProActive, presentPaywallIfNeeded, supported]
   );
 
   const handleModeChange = React.useCallback((mode: DiscoveryMode) => {
