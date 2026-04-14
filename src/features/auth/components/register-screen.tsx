@@ -67,8 +67,10 @@ export function RegisterScreen() {
 
           <AppInput
             autoCapitalize="none"
+            autoComplete="off"
             autoCorrect={false}
             error={passwordError ?? undefined}
+            importantForAutofill="no"
             label="Password"
             onChangeText={(value) => {
               setPassword(value);
@@ -77,6 +79,7 @@ export function RegisterScreen() {
                 setPasswordError(null);
               }
             }}
+            passwordRules={null}
             placeholder="Use at least 8 characters"
             secureTextEntry
             textContentType="none"
@@ -85,8 +88,10 @@ export function RegisterScreen() {
 
           <AppInput
             autoCapitalize="none"
+            autoComplete="off"
             autoCorrect={false}
             error={passwordConfirmationError ?? undefined}
+            importantForAutofill="no"
             label="Confirm Password"
             onChangeText={(value) => {
               setPasswordConfirmation(value);
@@ -95,6 +100,7 @@ export function RegisterScreen() {
                 setPasswordConfirmationError(null);
               }
             }}
+            passwordRules={null}
             placeholder="Repeat your password"
             secureTextEntry
             textContentType="none"

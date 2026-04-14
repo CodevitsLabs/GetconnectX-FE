@@ -163,13 +163,19 @@ export function LoginScreen() {
 
               <View>
                 <AppInput
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  autoCorrect={false}
                   error={passwordError ?? undefined}
+                  importantForAutofill="no"
                   onChangeText={(value) => {
                     setPassword(value);
                     if (passwordError) setPasswordError(null);
                   }}
+                  passwordRules={null}
                   placeholder="Password"
                   secureTextEntry={!showPassword}
+                  textContentType="none"
                   value={password}
                   className="bg-transparent border-0 border-b border-border rounded-none px-0 text-lg h-14 min-h-14 font-medium"
                   placeholderTextColor="#64748B"

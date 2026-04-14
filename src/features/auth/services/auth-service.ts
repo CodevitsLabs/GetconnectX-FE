@@ -197,7 +197,7 @@ function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
   }
 
   if (nextStep === 'REGISTRATION_COMPLETE') {
-    return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated';
+    return user.is_onboarded === false ? 'authenticated' : 'authenticated';
   }
 
   if (!user.email_verified_at) {
@@ -208,7 +208,7 @@ function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
     return 'pending_whatsapp_verification';
   }
 
-  return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated';
+  return user.is_onboarded === false ? 'authenticated' : 'authenticated';
 }
 
 function createAuthSession({
