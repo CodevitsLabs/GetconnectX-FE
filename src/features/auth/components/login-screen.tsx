@@ -1,8 +1,7 @@
 import { AntDesign } from '@expo/vector-icons';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Keyboard, Platform, Pressable, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, TouchableOpacity, View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -106,7 +105,9 @@ export function LoginScreen() {
     setIsGoogleSubmitting(true);
 
     try {
+
       const result = await signInWithGoogle();
+
 
       console.info('Google OAuth backend login successful.', {
         authPhase: result.session.authPhase,
@@ -117,6 +118,7 @@ export function LoginScreen() {
       router.replace(getRouteForAuthPhase(result.session.authPhase));
     } catch (error) {
       setStatusTone('danger');
+
       setStatusMessage(
         error instanceof Error
           ? error.message

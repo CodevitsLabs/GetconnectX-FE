@@ -12,24 +12,24 @@ import {
 } from '@shared/services/supabase/client';
 
 import { isAuthBypassEnabled } from '../config/auth-config';
+import type { LoginPayload } from '../services/auth-service';
 import {
   clearPersistedAuth,
   createGoogleAuthSessionFromSupabaseSession,
   enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
-  loginWithGoogleSupabase,
   loginWithApi,
+  loginWithGoogleSupabase,
   registerWithApi,
-  resendWhatsappOtpWithApi,
-  resendEmailOtpWithMock,
   replaceStoredSession,
-  sendWhatsappOtpWithApi,
+  resendEmailOtpWithMock,
+  resendWhatsappOtpWithApi,
   sendEmailOtpWithMock,
+  sendWhatsappOtpWithApi,
   verifyEmailOtpWithMock,
   verifyWhatsappOtpWithApi,
 } from '../services/auth-service';
-import type { LoginPayload } from '../services/auth-service';
 import { signInWithGoogleToken } from '../services/google-auth-service';
 import type {
   AuthPhase,
@@ -124,10 +124,10 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       onboardingCompletedAt: session.onboardingCompletedAt ?? null,
       user: session.user
         ? {
-            ...session.user,
-            is_active: false,
-            registration_step: Math.max(session.user.registration_step, 4),
-          }
+          ...session.user,
+          is_active: false,
+          registration_step: Math.max(session.user.registration_step, 4),
+        }
         : null,
     };
 
@@ -148,10 +148,10 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       onboardingCompletedAt: completedAt,
       user: session.user
         ? {
-            ...session.user,
-            is_active: true,
-            registration_step: Math.max(session.user.registration_step, 5),
-          }
+          ...session.user,
+          is_active: true,
+          registration_step: Math.max(session.user.registration_step, 5),
+        }
         : null,
     };
 
@@ -314,7 +314,9 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   );
 
   const signInWithGoogle = React.useCallback(async () => {
+    console.log('signing in with google');
     const googleResult = await signInWithGoogleToken();
+    console.log('googleResult', googleResult);
     const result = await loginWithGoogleSupabase({
       accessToken: googleResult.accessToken,
       displayName: googleResult.displayName,

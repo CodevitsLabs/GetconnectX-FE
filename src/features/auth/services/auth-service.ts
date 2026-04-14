@@ -1,9 +1,8 @@
-import * as SecureStore from 'expo-secure-store';
 import type { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
 
 import { ApiError, apiFetch } from '@shared/services/api';
-import { supabase } from '@shared/services/supabase/client';
-
+import { clearSupabaseSession, supabase } from '@shared/services/supabase/client';
 import type {
   AuthNextStep,
   AuthPhase,
@@ -74,6 +73,7 @@ export type GoogleOAuthLoginPayload = {
   accessToken: string;
   displayName?: string | null;
   email?: string | null;
+  fcmToken?: string | null;
   idToken: string;
 };
 
@@ -89,9 +89,21 @@ export type GoogleSupabaseLoginResponse = {
     user: AuthUser;
   };
   message: string;
-  next_step: 'REGISTRATION_COMPLETE';
+  next_step: AuthNextStep;
   status: 'success';
 };
+
+async function verifyGoogleOAuthWithApi(
+  payload: GoogleOAuthLoginPayload
+): Promise<GoogleOAuthVerifyResponse> {
+  return apiFetch<GoogleOAuthVerifyResponse>(AUTH_API.GOOGLE_OAUTH_VERIFY, {
+    method: 'POST',
+    body: {
+      fcm_token: payload.fcmToken ?? mockFCMToken,
+      provider_token: payload.accessToken,
+    } as any,
+  });
+}
 
 export async function getStoredToken() {
   return SecureStore.getItemAsync(TOKEN_KEY);
@@ -444,42 +456,62 @@ export async function loginWithApi(
 export async function loginWithGoogleSupabase(
   payload: GoogleOAuthLoginPayload
 ): Promise<SessionActionResult<GoogleSupabaseLoginResponse>> {
-  const { data, error } = await supabase.auth.signInWithIdToken({
-    provider: 'google',
-    token: payload.idToken,
-  });
+  try {
+    const googleVerifyResponse = await verifyGoogleOAuthWithApi(payload);
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: payload.idToken,
+    });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const supabaseSession = data.session;
+    const supabaseUser = data.user ?? supabaseSession?.user ?? null;
+
+    if (!supabaseUser) {
+      throw new Error('Supabase Google sign-in succeeded, but no user profile was returned.');
+    }
+
+    const session = createGoogleAuthSessionFromSupabaseUser(supabaseUser, payload.displayName);
+
+    await persistAuthSession(session, googleVerifyResponse.token);
+    console.error(googleVerifyResponse.next_step)
+
+    const backendUser = googleVerifyResponse.data.user;
+    const response: GoogleSupabaseLoginResponse = {
+      data: {
+        oauth_provider: 'google',
+        user: {
+          ...backendUser,
+          email: session.email,
+          id: session.user?.id ?? backendUser.id,
+        },
+      },
+      message: googleVerifyResponse.message,
+      next_step: googleVerifyResponse.next_step ?? 'REGISTRATION_COMPLETE',
+      status: 'success',
+    };
+
+    return {
+      response,
+      session,
+    };
+  } catch (verifyError) {
+    await Promise.allSettled([
+      clearSupabaseSession(),
+      clearPersistedAuth(),
+    ]);
+
+    if (verifyError instanceof ApiError) {
+      throw verifyError;
+    }
+
+    throw verifyError instanceof Error
+      ? verifyError
+      : new Error('Google sign-in failed.');
   }
-
-  const supabaseSession = data.session;
-  const supabaseUser = data.user ?? supabaseSession?.user ?? null;
-
-  if (!supabaseUser) {
-    throw new Error('Supabase Google sign-in succeeded, but no user profile was returned.');
-  }
-
-  const session = createGoogleAuthSessionFromSupabaseUser(supabaseUser, payload.displayName);
-  const response: GoogleSupabaseLoginResponse = {
-    data: {
-      oauth_provider: 'google',
-      user: session.user as AuthUser,
-    },
-    message: 'Google sign-in succeeded.',
-    next_step: 'REGISTRATION_COMPLETE',
-    status: 'success',
-  };
-
-  await Promise.all([
-    SecureStore.deleteItemAsync(TOKEN_KEY),
-    replaceStoredSession(session),
-  ]);
-
-  return {
-    response,
-    session,
-  };
 }
 
 export async function registerWithApi(
