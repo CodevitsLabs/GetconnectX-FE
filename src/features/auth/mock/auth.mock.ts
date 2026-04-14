@@ -3,6 +3,9 @@ import type {
   AuthSupabaseSessionPayload,
   AuthSuccessResponse,
   AuthUser,
+  LoginOtpMessageResponse,
+  LoginOtpVerifySuccessResponse,
+  LoginPasswordSuccessResponse,
   OtpMessageResponse,
   VerifyEmailSuccessResponse,
   VerifyWhatsappSuccessResponse,
@@ -10,6 +13,7 @@ import type {
 } from '../types/auth.types';
 
 export const MOCK_EMAIL_OTP = '671706';
+export const MOCK_LOGIN_OTP = '671706';
 export const MOCK_WHATSAPP_OTP = '671706';
 
 function createMockToken(prefix: string, suffix: string) {
@@ -51,11 +55,29 @@ export function buildMockRegisterResponse(email: string): AuthSuccessResponse {
   };
 }
 
+export function buildMockLoginPasswordResponse(): LoginPasswordSuccessResponse {
+  return {
+    data: [],
+    message: 'Login berhasil. Silakan verifikasi OTP untuk melanjutkan.',
+    next_step: 'NEED_LOGIN_OTP',
+    status: 'success',
+  };
+}
+
 export function buildMockEmailOtpMessage(email: string): OtpMessageResponse {
   return {
     data: [],
     message: `OTP Verification Code has been sent to ${email}. This code is valid for 10 minutes.`,
     next_step: 'NEED_EMAIL_VERIFICATION',
+    status: 'success',
+  };
+}
+
+export function buildMockLoginOtpMessage(email: string): LoginOtpMessageResponse {
+  return {
+    data: [],
+    message: `OTP Verification Code has been sent to ${email}. This code is valid for 10 minutes.`,
+    next_step: 'NEED_LOGIN_OTP',
     status: 'success',
   };
 }
@@ -100,6 +122,29 @@ export function buildMockRegistrationCompleteResponse(
     next_step: 'REGISTRATION_COMPLETE',
     status: 'success',
     token: createMockToken('mock-bearer', 'registration-complete'),
+    token_type: 'Bearer',
+  };
+}
+
+export function buildMockLoginCompleteResponse(
+  user: AuthUser,
+  mode: MockAuthFlowMode
+): LoginOtpVerifySuccessResponse {
+  const hydratedUser: AuthUser = {
+    ...user,
+    is_active: true,
+    is_onboarded: mode === 'authenticated',
+  };
+
+  return {
+    ...buildMockSupabaseTokens(hydratedUser),
+    data: {
+      user: hydratedUser,
+    },
+    message: 'Login berhasil.',
+    next_step: 'REGISTRATION_COMPLETE',
+    status: 'success',
+    token: createMockToken('mock-bearer', 'login-complete'),
     token_type: 'Bearer',
   };
 }

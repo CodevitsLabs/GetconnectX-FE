@@ -15,10 +15,14 @@ import { getMockAuthFlowMode } from '../config/auth-config';
 import {
   buildMockEmailOtpMessage,
   buildMockEmailVerifiedResponse,
+  buildMockLoginCompleteResponse,
+  buildMockLoginOtpMessage,
+  buildMockLoginPasswordResponse,
   buildMockRegisterResponse,
   buildMockRegistrationCompleteResponse,
   buildMockWhatsappOtpMessage,
   MOCK_EMAIL_OTP,
+  MOCK_LOGIN_OTP,
   MOCK_WHATSAPP_OTP,
 } from '../mock/auth.mock';
 import type {
@@ -29,6 +33,11 @@ import type {
   AuthSupabaseSessionPayload,
   AuthUser,
   EmailAlreadyVerifiedResponse,
+  LoginOtpMessageResponse,
+  LoginOtpSendPayload,
+  LoginOtpVerifyPayload,
+  LoginOtpVerifySuccessResponse,
+  LoginPasswordSuccessResponse,
   OtpMessageResponse,
   OtpRateLimitResponse,
   RegisterPayload,
@@ -52,6 +61,8 @@ const AUTH_API = {
   EMAIL_SEND_OTP: '/api/v1/auth/email/send-otp',
   GOOGLE_OAUTH_VERIFY: '/api/v1/auth/oauth/google/verify-token',
   LOGIN: '/api/v1/auth/login/password',
+  LOGIN_OTP_SEND: '/api/v1/auth/login/otp/send',
+  LOGIN_OTP_VERIFY: '/api/v1/auth/login/otp/verify',
   REGISTER: '/api/v1/auth/register',
   VERIFY_EMAIL: '/api/v1/auth/verify-email',
   VERIFY_WHATSAPP: '/api/v1/auth/verify-whatsapp',
@@ -64,6 +75,7 @@ const OTP_LOCK_WINDOW_MS = 60 * 1000;
 const OTP_VALIDITY_MS = 10 * 60 * 1000;
 const AUTH_PHASES = new Set([
   'signed_out',
+  'pending_login_otp',
   'pending_email_verification',
   'pending_whatsapp_verification',
   'pending_onboarding',
@@ -172,6 +184,10 @@ function isStoredSessionShape(value: unknown): value is AuthSession {
 }
 
 function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
+  if (nextStep === 'NEED_LOGIN_OTP') {
+    return 'pending_login_otp';
+  }
+
   if (nextStep === 'NEED_EMAIL_OTP' || nextStep === 'NEED_EMAIL_VERIFICATION') {
     return 'pending_email_verification';
   }
@@ -219,16 +235,47 @@ function createAuthSession({
     emailOtpLastSentAt: null,
     emailOtpResendAvailableAt: null,
     method,
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
     onboardingCompletedAt:
       authPhase === 'authenticated'
         ? user.whatsapp_verified_at ?? new Date().toISOString()
         : null,
     pendingWhatsappNumber: user.whatsapp_number,
     shouldAutoSendEmailOtp: nextStep === 'NEED_EMAIL_OTP',
+    shouldAutoSendLoginOtp: nextStep === 'NEED_LOGIN_OTP',
     user: {
       ...user,
       email: normalizedEmail,
     },
+    whatsappOtpLastSentAt: null,
+    whatsappOtpResendAvailableAt: null,
+  };
+}
+
+function createPendingLoginOtpSession(email: string): AuthSession {
+  const normalizedEmail = normalizeEmail(email);
+
+  return {
+    authPhase: 'pending_login_otp',
+    displayName: buildDisplayNameFromEmail(normalizedEmail) || 'ConnectX Member',
+    email: normalizedEmail,
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: null,
+    emailOtpResendAvailableAt: null,
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
+    method: 'email',
+    onboardingCompletedAt: null,
+    pendingWhatsappNumber: null,
+    shouldAutoSendEmailOtp: false,
+    shouldAutoSendLoginOtp: true,
+    user: null,
     whatsappOtpLastSentAt: null,
     whatsappOtpResendAvailableAt: null,
   };
@@ -277,6 +324,32 @@ function consumeEmailAutoSend(session: AuthSession) {
   } satisfies AuthSession;
 }
 
+function withLoginOtpSession(
+  session: AuthSession,
+  options?: {
+    otpCode?: string | null;
+  }
+) {
+  const now = Date.now();
+  const otpCode = options?.otpCode ?? null;
+
+  return {
+    ...session,
+    loginOtpCode: otpCode,
+    loginOtpExpiresAt: otpCode ? new Date(now + OTP_VALIDITY_MS).toISOString() : null,
+    loginOtpLastSentAt: new Date(now).toISOString(),
+    loginOtpResendAvailableAt: new Date(now + OTP_LOCK_WINDOW_MS).toISOString(),
+    shouldAutoSendLoginOtp: false,
+  } satisfies AuthSession;
+}
+
+function consumeLoginAutoSend(session: AuthSession) {
+  return {
+    ...session,
+    shouldAutoSendLoginOtp: false,
+  } satisfies AuthSession;
+}
+
 function withFreshWhatsappOtpSession(session: AuthSession, whatsappNumber: string) {
   const now = Date.now();
 
@@ -292,8 +365,13 @@ function moveSessionBackToEmailVerification(session: AuthSession) {
   return {
     ...session,
     authPhase: 'pending_email_verification',
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
     pendingWhatsappNumber: null,
     shouldAutoSendEmailOtp: false,
+    shouldAutoSendLoginOtp: false,
     whatsappOtpLastSentAt: null,
     whatsappOtpResendAvailableAt: null,
   } satisfies AuthSession;
@@ -307,9 +385,14 @@ function moveSessionToWhatsappVerification(session: AuthSession, user: AuthUser)
     emailOtpExpiresAt: null,
     emailOtpLastSentAt: session.emailOtpLastSentAt,
     emailOtpResendAvailableAt: session.emailOtpResendAvailableAt,
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
     onboardingCompletedAt: null,
     pendingWhatsappNumber: user.whatsapp_number ?? session.pendingWhatsappNumber ?? null,
     shouldAutoSendEmailOtp: false,
+    shouldAutoSendLoginOtp: false,
     user,
     whatsappOtpLastSentAt: null,
     whatsappOtpResendAvailableAt: null,
@@ -468,6 +551,14 @@ export async function persistAuthSession(session: AuthSession, token: string) {
   ]);
 }
 
+async function persistPendingAuthSession(session: AuthSession) {
+  await Promise.all([
+    SecureStore.deleteItemAsync(TOKEN_KEY),
+    SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session)),
+    persistStoredUser(session.user),
+  ]);
+}
+
 export async function replaceStoredSession(session: AuthSession) {
   await Promise.all([
     SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session)),
@@ -514,15 +605,20 @@ export function createGoogleAuthSessionFromSupabaseSession(
 }
 
 async function requireStoredAuthState() {
-  const { session, token, user } = await getPersistedAuthState();
+  return requireStoredAuthStateWithOptions();
+}
 
-  if (!token || !session) {
+async function requireStoredAuthStateWithOptions(options?: { requireToken?: boolean }) {
+  const { session, token, user } = await getPersistedAuthState();
+  const requireToken = options?.requireToken ?? true;
+
+  if (!session || (requireToken && !token)) {
     throw new Error('No auth state is available for this flow.');
   }
 
   return {
     session: session.user ? session : { ...session, user },
-    token,
+    token: token ?? null,
   };
 }
 
@@ -578,31 +674,220 @@ async function verifyGoogleOAuthWithApi(
 
 export async function loginWithApi(
   payload: LoginPayload
-): Promise<SessionActionResult<AuthSuccessResponse>> {
-  const response = await apiFetch<AuthSuccessResponse>(AUTH_API.LOGIN, {
-    method: 'POST',
-    body: {
-      ...payload,
-      fcm_token: payload.fcm_token || mockFCMToken,
-    } as any,
-  });
+): Promise<SessionActionResult<LoginPasswordSuccessResponse>> {
+  const response = isMockAuthFlowEnabled()
+    ? buildMockLoginPasswordResponse()
+    : await apiFetch<LoginPasswordSuccessResponse>(AUTH_API.LOGIN, {
+      method: 'POST',
+      body: {
+        ...payload,
+        fcm_token: payload.fcm_token || mockFCMToken,
+      } as any,
+    });
+  const session = createPendingLoginOtpSession(payload.email);
 
-  const session = createAuthSession({
-    displayName: buildDisplayNameFromEmail(response.data.user.email),
-    method: 'email',
-    nextStep: response.next_step,
-    user: response.data.user,
-  });
-
-  await Promise.all([
-    persistAuthSession(session, response.token),
-    applySupabaseAuthResponse(response),
-  ]);
+  if (response.token?.trim()) {
+    await persistAuthSession(session, response.token.trim());
+  } else {
+    await persistPendingAuthSession(session);
+  }
 
   return {
     response,
     session,
   };
+}
+
+export async function sendLoginOtp(): Promise<
+  SessionActionResult<LoginOtpMessageResponse | OtpRateLimitResponse>
+> {
+  const { session } = await requireStoredAuthStateWithOptions({ requireToken: false });
+  const baseSession = consumeLoginAutoSend(session);
+  const resendAvailableAt = session.loginOtpResendAvailableAt
+    ? new Date(session.loginOtpResendAvailableAt).getTime()
+    : 0;
+
+  if (resendAvailableAt > Date.now()) {
+    return persistSessionResult(baseSession, {
+      message: 'Upsss... Terlalu banyak permintaan OTP. Coba lagi dalam 8 menit.',
+    });
+  }
+
+  if (isMockAuthFlowEnabled()) {
+    const nextSession = withLoginOtpSession(baseSession, {
+      otpCode: MOCK_LOGIN_OTP,
+    });
+
+    if (__DEV__) {
+      console.log('[auth:mock] login otp', MOCK_LOGIN_OTP);
+    }
+
+    return persistSessionResult(nextSession, buildMockLoginOtpMessage(nextSession.email));
+  }
+
+  try {
+    const response = await apiFetch<LoginOtpMessageResponse>(AUTH_API.LOGIN_OTP_SEND, {
+      method: 'POST',
+      body: {
+        email: session.email,
+      } as LoginOtpSendPayload as any,
+    });
+    const nextSession = withLoginOtpSession(baseSession);
+
+    return persistSessionResult(nextSession, response);
+  } catch (error) {
+    if (error instanceof ApiError && isOtpRateLimitResponse(error.payload)) {
+      return persistSessionResult(baseSession, error.payload);
+    }
+
+    throw error;
+  }
+}
+
+export async function resendLoginOtp(): Promise<
+  SessionActionResult<LoginOtpMessageResponse | OtpRateLimitResponse>
+> {
+  const { session } = await requireStoredAuthStateWithOptions({ requireToken: false });
+  const resendAvailableAt = session.loginOtpResendAvailableAt
+    ? new Date(session.loginOtpResendAvailableAt).getTime()
+    : 0;
+
+  if (resendAvailableAt > Date.now()) {
+    return {
+      response: {
+        message: 'Upsss... Terlalu banyak permintaan OTP. Coba lagi dalam 8 menit.',
+      },
+      session,
+    };
+  }
+
+  if (isMockAuthFlowEnabled()) {
+    const nextSession = withLoginOtpSession(session, {
+      otpCode: MOCK_LOGIN_OTP,
+    });
+
+    if (__DEV__) {
+      console.log('[auth:mock] login otp', MOCK_LOGIN_OTP);
+    }
+
+    return persistSessionResult(nextSession, buildMockLoginOtpMessage(nextSession.email));
+  }
+
+  try {
+    const response = await apiFetch<LoginOtpMessageResponse>(AUTH_API.LOGIN_OTP_SEND, {
+      method: 'POST',
+      body: {
+        email: session.email,
+      } as LoginOtpSendPayload as any,
+    });
+    const nextSession = withLoginOtpSession(session);
+
+    return persistSessionResult(nextSession, response);
+  } catch (error) {
+    if (error instanceof ApiError && isOtpRateLimitResponse(error.payload)) {
+      return {
+        response: error.payload,
+        session,
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function verifyLoginOtp(
+  payload: LoginOtpVerifyPayload
+): Promise<
+  SessionActionResult<LoginOtpVerifySuccessResponse | VerifyWhatsappValidationErrorResponse>
+> {
+  const { session } = await requireStoredAuthStateWithOptions({ requireToken: false });
+
+  if (isMockAuthFlowEnabled()) {
+    const otpExpiresAt = session.loginOtpExpiresAt ? new Date(session.loginOtpExpiresAt).getTime() : 0;
+    const normalizedOtp = payload.otp_code.trim();
+
+    if (
+      !session.loginOtpCode ||
+      !otpExpiresAt ||
+      otpExpiresAt < Date.now() ||
+      normalizedOtp !== session.loginOtpCode
+    ) {
+      return {
+        response: {
+          errors: {
+            otp_code: ['Upsss... OTP tidak ditemukan atau sudah kadaluarsa. Silahkan minta OTP baru.'],
+          },
+          message: 'Terjadi kesalahan pada isian form. Silakan periksa kembali kolom yang diisi.',
+        },
+        session,
+      };
+    }
+
+    const mockMode = getMockAuthFlowMode() ?? 'pending_onboarding';
+    const now = new Date().toISOString();
+    const response = buildMockLoginCompleteResponse(
+      {
+        id: `mock-login-user-${Date.now()}`,
+        entity_type: null,
+        email: normalizeEmail(payload.email),
+        email_verified_at: now,
+        whatsapp_number: '+6280000000000',
+        whatsapp_verified_at: now,
+        registration_step: 5,
+        is_active: true,
+        is_onboarded: mockMode === 'authenticated',
+      },
+      mockMode
+    );
+    const nextSession = createAuthSession({
+      displayName: session.displayName,
+      method: session.method,
+      nextStep: response.next_step,
+      user: response.data.user,
+    });
+
+    await Promise.all([
+      persistAuthSession(nextSession, response.token),
+      applySupabaseAuthResponse(response),
+    ]);
+
+    return {
+      response,
+      session: nextSession,
+    };
+  }
+
+  try {
+    const response = await apiFetch<LoginOtpVerifySuccessResponse>(AUTH_API.LOGIN_OTP_VERIFY, {
+      method: 'POST',
+      body: payload as any,
+    });
+    const nextSession = createAuthSession({
+      displayName: session.displayName,
+      method: session.method,
+      nextStep: response.next_step,
+      user: response.data.user,
+    });
+
+    await Promise.all([
+      persistAuthSession(nextSession, response.token),
+      applySupabaseAuthResponse(response),
+    ]);
+
+    return {
+      response,
+      session: nextSession,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && isVerifyWhatsappValidationErrorResponse(error.payload)) {
+      return {
+        response: error.payload,
+        session,
+      };
+    }
+
+    throw error;
+  }
 }
 
 export async function loginWithGoogleSupabase(
@@ -1043,10 +1328,15 @@ export async function enterWithDevBypassSession() {
     emailOtpLastSentAt: null,
     emailOtpResendAvailableAt: null,
     isDevelopmentBypass: true,
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
     method: 'developer-bypass',
     onboardingCompletedAt: verifiedAt,
     pendingWhatsappNumber: null,
     shouldAutoSendEmailOtp: false,
+    shouldAutoSendLoginOtp: false,
     user: {
       id: 'dev-bypass-user',
       entity_type: null,

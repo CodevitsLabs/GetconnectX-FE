@@ -2,12 +2,14 @@ export type AuthMethod = 'email' | 'google' | 'apple' | 'developer-bypass';
 
 export type AuthPhase =
   | 'signed_out'
+  | 'pending_login_otp'
   | 'pending_email_verification'
   | 'pending_whatsapp_verification'
   | 'pending_onboarding'
   | 'authenticated';
 
 export type AuthNextStep =
+  | 'NEED_LOGIN_OTP'
   | 'NEED_EMAIL_VERIFICATION'
   | 'NEED_WHATSAPP_VERIFICATION'
   | 'NEED_EMAIL_OTP'
@@ -34,10 +36,15 @@ export type AuthSession = {
   emailOtpLastSentAt?: string | null;
   emailOtpResendAvailableAt?: string | null;
   isDevelopmentBypass?: boolean;
+  loginOtpCode?: string | null;
+  loginOtpExpiresAt?: string | null;
+  loginOtpLastSentAt?: string | null;
+  loginOtpResendAvailableAt?: string | null;
   method: AuthMethod;
   onboardingCompletedAt?: string | null;
   pendingWhatsappNumber?: string | null;
   shouldAutoSendEmailOtp?: boolean;
+  shouldAutoSendLoginOtp?: boolean;
   user: AuthUser | null;
   whatsappOtpLastSentAt?: string | null;
   whatsappOtpResendAvailableAt?: string | null;
@@ -72,6 +79,15 @@ export type VerifyEmailPayload = {
   otp_code: string;
 };
 
+export type LoginOtpSendPayload = {
+  email: string;
+};
+
+export type LoginOtpVerifyPayload = {
+  email: string;
+  otp_code: string;
+};
+
 export type WhatsappOtpPayload = {
   whatsapp_number: string;
 };
@@ -94,6 +110,22 @@ export type OtpMessageResponse = {
   data: [];
   message: string;
   next_step: 'NEED_EMAIL_VERIFICATION';
+  status: 'success';
+};
+
+export type LoginPasswordSuccessResponse = {
+  data: [];
+  message: string;
+  next_step?: string | null;
+  status: 'success';
+  token?: string | null;
+  token_type?: string | null;
+} & AuthSupabaseSessionPayload;
+
+export type LoginOtpMessageResponse = {
+  data: [];
+  message: string;
+  next_step?: string | null;
   status: 'success';
 };
 
@@ -147,6 +179,8 @@ export type VerifyWhatsappSuccessResponse = {
   token: string;
   token_type: string;
 } & AuthSupabaseSessionPayload;
+
+export type LoginOtpVerifySuccessResponse = VerifyWhatsappSuccessResponse;
 
 export type VerifyWhatsappValidationErrorResponse = {
   errors: {

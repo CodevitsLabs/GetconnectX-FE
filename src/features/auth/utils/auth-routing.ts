@@ -4,6 +4,8 @@ export function getRouteForAuthPhase(authPhase: AuthPhase) {
   switch (authPhase) {
     case 'authenticated':
       return '/(tabs)' as const;
+    case 'pending_login_otp':
+      return '/verify-login-otp' as const;
     case 'pending_onboarding':
       return '/onboarding' as const;
     case 'pending_email_verification':

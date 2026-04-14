@@ -23,10 +23,13 @@ import {
   loginWithGoogleSupabase,
   registerWithApi,
   replaceStoredSession,
+  resendLoginOtp as resendLoginOtpRequest,
   resendEmailOtp as resendEmailOtpRequest,
   resendWhatsappOtp as resendWhatsappOtpRequest,
+  sendLoginOtp as sendLoginOtpRequest,
   sendEmailOtp as sendEmailOtpRequest,
   sendWhatsappOtp as sendWhatsappOtpRequest,
+  verifyLoginOtp as verifyLoginOtpRequest,
   verifyEmailOtp as verifyEmailOtpRequest,
   verifyWhatsappOtp as verifyWhatsappOtpRequest,
 } from '../services/auth-service';
@@ -34,6 +37,7 @@ import { signInWithGoogleToken } from '../services/google-auth-service';
 import type {
   AuthPhase,
   AuthSession,
+  LoginOtpVerifyPayload,
   RegisterPayload,
   VerifyEmailPayload,
   VerifyWhatsappPayload,
@@ -50,12 +54,15 @@ type AuthContextValue = {
   enterWithDevBypass: () => Promise<void>;
   login: (payload: LoginPayload) => ReturnType<typeof loginWithApi>;
   register: (payload: RegisterPayload) => ReturnType<typeof registerWithApi>;
+  resendLoginOtp: () => ReturnType<typeof resendLoginOtpRequest>;
   resendEmailOtp: () => ReturnType<typeof resendEmailOtpRequest>;
   resendWhatsappOtp: () => ReturnType<typeof resendWhatsappOtpRequest>;
+  sendLoginOtp: () => ReturnType<typeof sendLoginOtpRequest>;
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpRequest>;
   sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpRequest>;
   signInWithGoogle: () => ReturnType<typeof loginWithGoogleSupabase>;
   signOut: () => Promise<void>;
+  verifyLoginOtp: (payload: LoginOtpVerifyPayload) => ReturnType<typeof verifyLoginOtpRequest>;
   verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpRequest>;
   verifyWhatsappOtp: (payload: VerifyWhatsappPayload) => ReturnType<typeof verifyWhatsappOtpRequest>;
 };
@@ -79,6 +86,10 @@ function isRecoverableSupabaseSessionError(error: unknown) {
     normalizedMessage.includes('refresh token') &&
     (normalizedMessage.includes('invalid') || normalizedMessage.includes('not found'))
   );
+}
+
+function canRestoreWithoutToken(authPhase: AuthPhase) {
+  return authPhase === 'pending_login_otp';
 }
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
@@ -207,7 +218,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
           return;
         }
 
-        if (token && storedSession) {
+        if ((token && storedSession) || (storedSession && canRestoreWithoutToken(storedSession.authPhase))) {
           setSession(storedSession);
           setAuthPhase(storedSession.authPhase);
         } else {
@@ -370,8 +381,22 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     return result;
   }, []);
 
+  const sendLoginOtp = React.useCallback(async () => {
+    const result = await sendLoginOtpRequest();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
   const resendEmailOtp = React.useCallback(async () => {
     const result = await resendEmailOtpRequest();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const resendLoginOtp = React.useCallback(async () => {
+    const result = await resendLoginOtpRequest();
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
@@ -393,6 +418,13 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const verifyEmailOtp = React.useCallback(async (payload: VerifyEmailPayload) => {
     const result = await verifyEmailOtpRequest(payload);
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const verifyLoginOtp = React.useCallback(async (payload: LoginOtpVerifyPayload) => {
+    const result = await verifyLoginOtpRequest(payload);
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
@@ -421,13 +453,16 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       isAuthBypassEnabled: authBypassEnabled,
       login,
       register,
+      resendLoginOtp,
       resendEmailOtp,
       resendWhatsappOtp,
+      sendLoginOtp,
       sendEmailOtp,
       sendWhatsappOtp,
       session,
       signInWithGoogle,
       signOut,
+      verifyLoginOtp,
       verifyEmailOtp,
       verifyWhatsappOtp,
     }),
@@ -440,13 +475,16 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       isHydrated,
       login,
       register,
+      resendLoginOtp,
       resendEmailOtp,
       resendWhatsappOtp,
+      sendLoginOtp,
       sendEmailOtp,
       sendWhatsappOtp,
       session,
       signInWithGoogle,
       signOut,
+      verifyLoginOtp,
       verifyEmailOtp,
       verifyWhatsappOtp,
     ]
