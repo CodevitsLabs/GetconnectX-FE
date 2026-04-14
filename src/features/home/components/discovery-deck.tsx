@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useRevenueCat } from '@features/revenuecat';
+import { REVENUECAT_OFFERING_IDS, useRevenueCat } from '@features/revenuecat';
 import { AppCard, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 import { Shadows } from '@shared/theme';
@@ -30,6 +30,7 @@ import {
   mockDiscoveryCardsResponse,
   mockDiscoveryFilterOptionsByMode,
 } from '../mock/discovery.mock';
+import { isSuperLikeRequiresBoostError } from '../services/discovery-contract';
 import type {
   DiscoveryAppliedFilters,
   DiscoveryCard,
@@ -43,6 +44,7 @@ import type {
 import { DiscoveryFilterSheet } from './discovery-filter-sheet';
 
 type SwipeDirection = 'left' | 'right';
+type SwipeActionIntent = SwipeActionRequest['action'];
 
 const SWIPE_THRESHOLD = 120;
 const PRELOAD_THRESHOLD = 3;
@@ -411,7 +413,8 @@ function EmptyState({
 export function DiscoveryDeck() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { isConnectXProActive, presentPaywallIfNeeded, supported } = useRevenueCat();
+  const { isConnectXProActive, presentPaywallForOffering, presentPaywallIfNeeded, supported } =
+    useRevenueCat();
   const [fallbackCards, setFallbackCards] = React.useState(mockDiscoveryCardsResponse.data.items);
   const [restoredCards, setRestoredCards] = React.useState<DiscoveryCard[]>([]);
   const [history, setHistory] = React.useState<DiscoveryCard[]>([]);
@@ -429,6 +432,7 @@ export function DiscoveryDeck() {
   const translateY = useSharedValue(0);
   const nextCardScale = useSharedValue(0.96);
   const currentCardRef = React.useRef<DiscoveryCard | null>(null);
+  const usingFallbackRef = React.useRef(false);
   const matchToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filterOptionsQuery = useDiscoveryFilterOptions(sheetMode, isFilterVisible);
@@ -480,6 +484,7 @@ export function DiscoveryDeck() {
   const discoveryQuery = useDiscoveryCards(discoveryRequest, DISCOVERY_PAGE_LIMIT);
   const swipeAction = useSwipeAction();
 
+
   const liveCards = React.useMemo(() => flattenUniqueCards(discoveryQuery.data), [discoveryQuery.data]);
 
   React.useEffect(() => {
@@ -506,9 +511,10 @@ export function DiscoveryDeck() {
   );
 
   currentCardRef.current = currentItem;
+  usingFallbackRef.current = usingFallback;
 
   React.useEffect(() => {
-    if (usingFallback) {
+        if (usingFallbackRef.current) {
       return;
     }
 
@@ -574,8 +580,29 @@ export function DiscoveryDeck() {
     }, MATCH_TOAST_DURATION_MS);
   }, []);
 
+  const maybePresentBoostPaywall = React.useCallback(async () => {
+    if (!supported) {
+      setActionError('Boost purchases are available in the native iOS and Android builds.');
+      return;
+    }
+
+    try {
+      const result = await presentPaywallForOffering(REVENUECAT_OFFERING_IDS.discoveryBoosts);
+
+      if (
+        result !== PAYWALL_RESULT.PURCHASED &&
+        result !== PAYWALL_RESULT.RESTORED &&
+        result !== PAYWALL_RESULT.CANCELLED
+      ) {
+        setActionError('No boosts remaining.');
+      }
+    } catch (error) {
+      setActionError(getErrorMessage(error, 'Unable to open the boost purchase flow.'));
+    }
+  }, [presentPaywallForOffering, supported]);
+
   const handleSwipeAction = React.useCallback(
-    async (direction: SwipeDirection) => {
+    async (action: SwipeActionIntent, direction?: SwipeDirection) => {
       const activeCard = currentCardRef.current;
 
       if (!activeCard) {
@@ -584,34 +611,47 @@ export function DiscoveryDeck() {
         return;
       }
 
-      const action: SwipeActionRequest['action'] = direction === 'right' ? 'like' : 'pass';
-
       try {
-        triggerSwipeHaptic(direction);
-        setHistory((current) => [...current.slice(-19), activeCard]);
         let matched = false;
 
-        if (usingFallback) {
+        if (false) {
+          if (direction) {
+            triggerSwipeHaptic(direction);
+          } else {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+
           setFallbackCards((current) => current.filter((item) => item.id !== activeCard.id));
         } else {
-          setRestoredCards((current) => current.filter((card) => card.id !== activeCard.id));
           const response = await swipeAction.mutateAsync({
             payload: { action },
             profileId: activeCard.profileId,
           });
-          console.log('response', response);
 
           matched = Boolean(response.data.isMatch);
         }
 
-        if (direction === 'right' && (matched || shouldShowMockMatchToast(activeCard))) {
+        setHistory((current) => [...current.slice(-19), activeCard]);
+
+        if (direction) {
+          triggerSwipeHaptic(direction);
+        }
+
+        if (
+          (action === 'like' || action === 'super_like') &&
+          (matched || shouldShowMockMatchToast(activeCard))
+        ) {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           showMatchToast(activeCard.name);
         }
 
         setActionError(null);
       } catch (error) {
-        setActionError(getErrorMessage(error, 'Unable to record this swipe right now.'));
+        if (action === 'super_like' && isSuperLikeRequiresBoostError(error)) {
+          await maybePresentBoostPaywall();
+        } else {
+          setActionError(getErrorMessage(error, 'Unable to record this swipe right now.'));
+        }
       } finally {
         setIsSubmitting(false);
         translateX.value = 0;
@@ -619,7 +659,15 @@ export function DiscoveryDeck() {
         nextCardScale.value = 0.96;
       }
     },
-    [nextCardScale, resetCardPosition, showMatchToast, swipeAction, translateX, translateY, usingFallback]
+    [
+      maybePresentBoostPaywall,
+      nextCardScale,
+      resetCardPosition,
+      showMatchToast,
+      swipeAction,
+      translateX,
+      translateY,
+    ]
   );
 
   const handleRewind = React.useCallback(() => {
@@ -634,11 +682,6 @@ export function DiscoveryDeck() {
     setRestoredCards((current) => [lastCard, ...current]);
   }, [history, isSubmitting]);
 
-  const handleSuperLike = React.useCallback(() => {
-    console.log('[Discovery] Super Like triggered for:', currentItem?.name);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [currentItem]);
-
   const beginSwipe = React.useCallback(
     (direction: SwipeDirection) => {
       if (!currentCardRef.current || isSubmitting) {
@@ -652,7 +695,7 @@ export function DiscoveryDeck() {
 
       translateX.value = withTiming(destination * 1.2, { duration: 220 }, (finished) => {
         if (finished) {
-          runOnJS(handleSwipeAction)(direction);
+          runOnJS(handleSwipeAction)(direction === 'right' ? 'like' : 'pass', direction);
         }
       });
       translateY.value = withTiming(-18, { duration: 220 });
@@ -660,6 +703,23 @@ export function DiscoveryDeck() {
     },
     [handleSwipeAction, isSubmitting, nextCardScale, translateX, translateY, width]
   );
+
+  const handleSuperLike = React.useCallback(() => {
+    if (!currentCardRef.current || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setActionError(null);
+
+    translateX.value = withTiming(width * 0.52, { duration: 220 }, (finished) => {
+      if (finished) {
+        runOnJS(handleSwipeAction)('super_like');
+      }
+    });
+    translateY.value = withTiming(-64, { duration: 220 });
+    nextCardScale.value = withTiming(1, { duration: 220 });
+  }, [handleSwipeAction, isSubmitting, nextCardScale, translateX, translateY, width]);
 
   const handleOpenFilters = React.useCallback(() => {
     setFilterError(null);

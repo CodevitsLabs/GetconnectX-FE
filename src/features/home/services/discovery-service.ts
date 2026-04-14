@@ -1,4 +1,4 @@
-import { apiFetch } from '@shared/services/api';
+import { ApiError, apiFetch } from '@shared/services/api';
 
 import type {
   DiscoveryCardFeedInput,
@@ -14,6 +14,34 @@ import type {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
+
+function parseBooleanEnv(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
+
+function shouldMockSuperLikeRequiresBoost() {
+  const envValue = parseBooleanEnv(process.env.EXPO_PUBLIC_MOCK_SUPERLIKE_NO_BOOST);
+
+  if (envValue !== null) {
+    return envValue;
+  }
+
+  return false;
+}
 
 export const DISCOVERY_API = {
   CARDS: '/api/v1/discovery/cards',
@@ -70,6 +98,22 @@ export async function fetchDiscoveryFilterOptions(mode: DiscoveryMode) {
 }
 
 export async function postSwipeAction(profileId: string, payload: SwipeActionRequest) {
+  if (__DEV__ && payload.action === 'super_like' && shouldMockSuperLikeRequiresBoost()) {
+    throw new ApiError('No boosts remaining.', 409, {
+      success: false,
+      message: 'No boosts remaining.',
+      error: {
+        code: 'DISCOVERY_SUPER_LIKE_REQUIRES_BOOST',
+        details: {
+          profileId,
+          action: 'super_like',
+          requiredConsumable: 'boost',
+          remaining: 0,
+        },
+      },
+    });
+  }
+
   return apiFetch<SwipeActionResponse>(DISCOVERY_API.ACTION(profileId), {
     body: payload as unknown as BodyInit,
     method: 'POST',

@@ -1,3 +1,5 @@
+import { ApiError } from '@shared/services/api';
+
 import type {
   SpotlightActivationDeniedResponse,
   SpotlightActivationSuccessResponse,
@@ -23,6 +25,14 @@ export function isSwipeActionDeniedResponse(payload: unknown): payload is SwipeA
   }
 
   return error.code === 'DISCOVERY_SUPER_LIKE_REQUIRES_BOOST';
+}
+
+export function isSuperLikeRequiresBoostError(error: unknown): error is ApiError {
+  if (!(error instanceof ApiError) || error.status !== DISCOVERY_ERROR_STATUS.superLikeRequiresBoost) {
+    return false;
+  }
+
+  return isSwipeActionDeniedResponse(error.payload);
 }
 
 export function isSpotlightActivationDeniedResponse(

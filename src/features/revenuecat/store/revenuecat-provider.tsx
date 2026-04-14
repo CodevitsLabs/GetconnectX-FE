@@ -35,6 +35,7 @@ type RevenueCatContextValue = {
   offerings: PurchasesOfferings | null;
   packages: RevenueCatPackageMap;
   presentPaywall: () => Promise<PAYWALL_RESULT | null>;
+  presentPaywallForOffering: (offeringId: string) => Promise<PAYWALL_RESULT | null>;
   presentPaywallIfNeeded: () => Promise<PAYWALL_RESULT | null>;
   presentCustomerCenter: () => Promise<void>;
   purchasePackageById: (packageId: RevenueCatPackageId) => Promise<CustomerInfo | null>;
@@ -80,6 +81,16 @@ function getOfferPackages(offering: PurchasesOffering | null): RevenueCatPackage
       offering?.monthly ??
       null,
   };
+}
+
+function getOfferingById(offerings: PurchasesOfferings | null, offeringId: string) {
+  const normalizedOfferingId = offeringId.trim();
+
+  if (!normalizedOfferingId) {
+    return null;
+  }
+
+  return offerings?.all[normalizedOfferingId] ?? null;
 }
 
 async function fetchBootstrapState() {
@@ -349,6 +360,43 @@ export function RevenueCatProvider({ children }: React.PropsWithChildren) {
     }
   }, [currentOffering, refresh]);
 
+  const presentPaywallForOffering = React.useCallback(
+    async (offeringId: string) => {
+      if (!REVENUECAT_SUPPORTED_PLATFORM || !configuredRef.current) {
+        return null;
+      }
+
+      const offering = getOfferingById(offerings, offeringId);
+
+      if (!offering) {
+        const missingOfferingError = new Error(
+          `The ${offeringId} offering is missing from RevenueCat.`
+        );
+        setError(missingOfferingError.message);
+        throw missingOfferingError;
+      }
+
+      try {
+        const result = await RevenueCatUI.presentPaywall({
+          offering,
+          displayCloseButton: true,
+        });
+
+        if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
+          await refresh();
+        }
+
+        setError(null);
+        return result;
+      } catch (nextError) {
+        const message = getErrorMessage(nextError);
+        setError(message);
+        throw nextError;
+      }
+    },
+    [offerings, refresh]
+  );
+
   const presentPaywallIfNeeded = React.useCallback(async () => {
     if (!REVENUECAT_SUPPORTED_PLATFORM || !configuredRef.current) {
       return null;
@@ -417,6 +465,7 @@ export function RevenueCatProvider({ children }: React.PropsWithChildren) {
       packages,
       presentCustomerCenter,
       presentPaywall,
+      presentPaywallForOffering,
       presentPaywallIfNeeded,
       purchasePackageById,
       refresh,
@@ -435,6 +484,7 @@ export function RevenueCatProvider({ children }: React.PropsWithChildren) {
       packages,
       presentCustomerCenter,
       presentPaywall,
+      presentPaywallForOffering,
       presentPaywallIfNeeded,
       purchasePackageById,
       refresh,

@@ -10,7 +10,11 @@ export const REVENUECAT_PACKAGE_IDS = {
 
 export type RevenueCatPackageId = keyof typeof REVENUECAT_PACKAGE_IDS;
 
-const TEST_REVENUECAT_API_KEY = 'test_DJTVdKHWYsXvSKxLDZsjjfpyNJc';
+export const REVENUECAT_OFFERING_IDS = {
+  discoveryBoosts: process.env.EXPO_PUBLIC_REVENUECAT_DISCOVERY_BOOSTS_OFFERING_ID?.trim() || 'discovery_boosts',
+} as const;
+
+const TEST_REVENUECAT_API_KEY = 'test_qygzknVEBmKBRnPRWUFvfgCvaCZ';
 
 export const REVENUECAT_SUPPORTED_PLATFORM = Platform.OS === 'ios' || Platform.OS === 'android';
 
