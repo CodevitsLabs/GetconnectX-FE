@@ -894,7 +894,7 @@ export function DiscoveryDeck() {
   }
 
   return (
-    <View className="flex-1 gap-4 px-4 pb-1" style={{ paddingTop: insets.top + 4 }}>
+    <View className="flex-1 gap-2 px-4 pb-1" style={{ paddingTop: insets.top }}>
       {matchToastName ? (
         <View className="absolute inset-x-4 top-2 z-20" pointerEvents="none">
           <AppCard
@@ -914,12 +914,7 @@ export function DiscoveryDeck() {
       ) : null}
 
       <View className="flex-row items-center justify-between">
-        <View className="gap-1">
-          <AppText variant="title">Discover</AppText>
-          <AppText tone="muted">
-            Swipe through curated builders, founders, and operators near you.
-          </AppText>
-        </View>
+        <AppText variant="title">Discover</AppText>
         <Pressable
           className="flex-row items-center gap-2 rounded-full border px-3 py-2"
           onPress={handleOpenFilters}
@@ -977,25 +972,128 @@ export function DiscoveryDeck() {
                 nextCardStyle,
                 { transform: [...(nextCardStyle.transform || []), { translateY: 8 }, { scale: 0.96 }] },
               ]}>
-              <View className="h-[280px] overflow-hidden">
-                {nextItem.photoUrl ? (
-                  <Image
-                    contentFit="cover"
-                    source={{ uri: nextItem.photoUrl }}
-                    style={{ height: '100%', width: '100%' }}
+              <ScrollView className="flex-1" scrollEnabled={false} showsVerticalScrollIndicator={false}>
+                <View className="h-[400px] overflow-hidden">
+                  {nextItem.photoUrl ? (
+                    <Image
+                      contentFit="cover"
+                      source={{ uri: nextItem.photoUrl }}
+                      style={{ height: '100%', width: '100%' }}
+                    />
+                  ) : (
+                    <View className="h-full w-full bg-surface-muted" />
+                  )}
+
+                  <View
+                    className="absolute inset-0"
+                    style={{ backgroundColor: 'rgba(17, 19, 26, 0.24)' }}
                   />
-                ) : (
-                  <View className="h-full w-full bg-surface-muted" />
-                )}
-              </View>
-              <View className="gap-1 p-4">
-                <AppText className="text-[20px]" variant="title">
-                  {nextItem.name}
-                </AppText>
-                <AppText className="text-[14px]" tone="muted">
-                  {nextItem.headline}
-                </AppText>
-              </View>
+
+                  <View
+                    className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-10"
+                    style={{ backgroundColor: 'rgba(17, 19, 26, 0.52)' }}>
+                    <AppText className="text-[28px] leading-[34px]" variant="hero">
+                      {nextItem.age ? `${nextItem.name}, ${nextItem.age}` : nextItem.name}
+                    </AppText>
+                    <View className="mt-1 flex-row items-center gap-1.5">
+                      <Ionicons color="#98A2B3" name="location-outline" size={16} />
+                      <AppText className="text-[14px]" tone="muted">
+                        {nextItem.location.display}
+                      </AppText>
+                      {typeof nextItem.location.distanceKm === 'number' ? (
+                        <AppText className="text-[14px]" tone="signal">
+                          • {nextItem.location.distanceKm} km
+                        </AppText>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+
+                <View className="flex-row items-center justify-between border-b border-border px-4 py-4">
+                  <View className="flex-row items-center gap-3">
+                    <View className="items-center justify-center rounded-full border-2 border-[#FFCD38] p-2.5">
+                      <AppText className="text-[16px] font-bold" style={{ color: '#FFCD38' }}>
+                        {nextItem.match.score}%
+                      </AppText>
+                    </View>
+
+                    <View className="gap-0.5">
+                      <View className="flex-row items-center gap-1">
+                        <Ionicons color="#FFCD38" name="star" size={14} />
+                        <AppText
+                          className="text-[14px]"
+                          style={{ color: '#FFCD38' }}
+                          variant="bodyStrong">
+                          {nextItem.match.label ?? 'Strong Match'}
+                        </AppText>
+                      </View>
+                      <AppText className="text-[12px]" tone="muted">
+                        Match quality
+                      </AppText>
+                    </View>
+                  </View>
+
+                  <View className="items-end gap-1">
+                    <AppText className="text-[17px] leading-tight" align="right" variant="title">
+                      {nextItem.headline}
+                    </AppText>
+                    {nextItem.badges[0] ? (
+                      <View className="flex-row items-center gap-1">
+                        <Ionicons
+                          color="#FF9A3E"
+                          name={getBadgeIcon(nextItem.badges[0].icon)}
+                          size={12}
+                        />
+                        <AppText className="text-[13px]" tone="muted">
+                          {nextItem.badges[0].label}
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
+                <View className="gap-5 px-4 py-4">
+                  {nextItem.bio ? (
+                    <AppText className="text-[16px] leading-7" tone="muted">
+                      {nextItem.bio}
+                    </AppText>
+                  ) : null}
+
+                  {nextItem.startupIdea ? (
+                    <View
+                      className="gap-2.5 rounded-[20px] border px-4 py-4"
+                      style={{
+                        backgroundColor: '#2A2117',
+                        borderColor: 'rgba(255, 154, 62, 0.25)',
+                      }}>
+                      <SectionLabel icon="bulb-outline" title="Startup Idea" />
+                      <AppText className="text-[16px] leading-6">{nextItem.startupIdea}</AppText>
+                    </View>
+                  ) : null}
+
+                  <View className="gap-2.5">
+                    <SectionLabel title="Industries & Interests" />
+                    <View className="flex-row flex-wrap gap-2">
+                      {nextItem.interests.map((item) => (
+                        <DiscoveryTag
+                          key={item.id}
+                          item={item}
+                          tone={item.type === 'availability' ? 'availability' : 'default'}
+                        />
+                      ))}
+                    </View>
+                  </View>
+
+                  <View className="gap-2.5">
+                    <SectionLabel title="Skills" />
+                    <View className="flex-row flex-wrap gap-2">
+                      {nextItem.skills.map((item) => (
+                        <DiscoveryTag key={item.id} item={item} />
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
             </Animated.View>
           ) : null}
 
@@ -1191,7 +1289,7 @@ export function DiscoveryDeck() {
         </View>
       </View>
 
-      <View className="flex-row items-center justify-center gap-5">
+      <View className="flex-row items-center justify-center gap-4">
         <DeckActionButton
           color="#EF4444"
           disabled={isSubmitting}
