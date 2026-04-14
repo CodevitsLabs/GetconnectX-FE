@@ -20,7 +20,7 @@ import {
   getPersistedAuthState,
   getStoredToken,
   loginWithApi,
-  loginWithGoogleSupabase,
+  loginWithGoogleApi,
   registerWithApi,
   replaceStoredSession,
   resendEmailOtp as resendEmailOtpRequest,
@@ -33,7 +33,7 @@ import {
   verifyLoginOtp as verifyLoginOtpRequest,
   verifyWhatsappOtp as verifyWhatsappOtpRequest,
 } from '../services/auth-service';
-import { signInWithGoogleToken } from '../services/google-auth-service';
+import { signInWithGoogleToken, signOutGoogle } from '../services/google-auth-service';
 import type {
   AuthPhase,
   AuthSession,
@@ -60,7 +60,7 @@ type AuthContextValue = {
   sendLoginOtp: () => ReturnType<typeof sendLoginOtpRequest>;
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpRequest>;
   sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpRequest>;
-  signInWithGoogle: () => ReturnType<typeof loginWithGoogleSupabase>;
+  signInWithGoogle: (payload?: { fcmToken?: string | null }) => ReturnType<typeof loginWithGoogleApi>;
   signOut: () => Promise<void>;
   verifyLoginOtp: (payload: LoginOtpVerifyPayload) => ReturnType<typeof verifyLoginOtpRequest>;
   verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpRequest>;
@@ -112,15 +112,24 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   }, []);
 
   const signOut = React.useCallback(async () => {
-    const shouldSignOutSupabase = session?.method === 'google';
+    const shouldSignOutGoogle = session?.method === 'google';
 
     await clearPersistedAuth();
 
-    if (shouldSignOutSupabase) {
-      await signOutSupabase();
-    }
+    const cleanupResults = await Promise.allSettled([
+      signOutSupabase(),
+      supabaseChatRepository.clearRealtimeSubscriptions(),
+      syncSupabaseRealtimeAuth(null),
+      ...(shouldSignOutGoogle ? [signOutGoogle()] : []),
+    ]);
 
-    await supabaseChatRepository.clearRealtimeSubscriptions();
+    if (__DEV__) {
+      const rejectedCleanup = cleanupResults.find((result) => result.status === 'rejected');
+
+      if (rejectedCleanup?.status === 'rejected') {
+        console.warn('[auth] sign-out cleanup failed', rejectedCleanup.reason);
+      }
+    }
 
     setAuthPhase('signed_out');
     setSession(null);
@@ -265,14 +274,10 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     configureApiClient({
       getAccessToken: getStoredToken,
       onUnauthorized: async () => {
-        if (session?.method === 'google') {
-          return;
-        }
-
         await signOut();
       },
     });
-  }, [session?.method, signOut]);
+  }, [signOut]);
 
   React.useEffect(() => {
     const syncAutoRefresh = (state: AppStateStatus) => {
@@ -346,14 +351,13 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     []
   );
 
-  const signInWithGoogle = React.useCallback(async () => {
-    console.log('signing in with google');
+  const signInWithGoogle = React.useCallback(async (payload?: { fcmToken?: string | null }) => {
     const googleResult = await signInWithGoogleToken();
-    console.log('googleResult', googleResult);
-    const result = await loginWithGoogleSupabase({
+    const result = await loginWithGoogleApi({
       accessToken: googleResult.accessToken,
       displayName: googleResult.displayName,
       email: googleResult.email,
+      fcmToken: payload?.fcmToken ?? '',
       idToken: googleResult.idToken,
     });
 

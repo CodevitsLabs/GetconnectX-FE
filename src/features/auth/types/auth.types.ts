@@ -9,6 +9,7 @@ export type AuthPhase =
   | 'authenticated';
 
 export type AuthNextStep =
+  | 'LOGIN_SUCCESS'
   | 'NEED_LOGIN_OTP'
   | 'NEED_EMAIL_VERIFICATION'
   | 'NEED_WHATSAPP_VERIFICATION'
@@ -101,7 +102,7 @@ export type GoogleAuthResult = {
   displayName: string;
   provider: 'google';
   accessToken: string;
-  idToken: string;
+  idToken: string | null;
   fcmToken: string | null;
   userId: string;
 };

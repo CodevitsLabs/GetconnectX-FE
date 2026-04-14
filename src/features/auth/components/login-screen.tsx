@@ -106,7 +106,9 @@ export function LoginScreen() {
 
     try {
 
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle({
+        fcmToken,
+      });
       console.info('Google OAuth backend login successful.', {
         authPhase: result.session.authPhase,
         email: result.session.email,

@@ -1,14 +1,10 @@
 import type { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
-import { supabaseChatRepository } from '@features/chat/data/supabase/SupabaseChatRepository';
 import { ApiError, apiFetch } from '@shared/services/api';
 import {
-  clearSupabaseSession,
   setSupabaseRealtimeToken,
   setSupabaseSession,
-  supabase,
-  syncSupabaseRealtimeAuth,
 } from '@shared/services/supabase/client';
 
 import { getMockAuthFlowMode } from '../config/auth-config';
@@ -105,7 +101,7 @@ export type GoogleOAuthLoginPayload = {
   displayName?: string | null;
   email?: string | null;
   fcmToken?: string | null;
-  idToken: string;
+  idToken?: string | null;
 };
 
 export type GoogleSupabaseLoginResponse = AuthSuccessResponse & {
@@ -184,6 +180,10 @@ function isStoredSessionShape(value: unknown): value is AuthSession {
 }
 
 function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
+  if (nextStep === 'LOGIN_SUCCESS') {
+    return 'authenticated';
+  }
+
   if (nextStep === 'NEED_LOGIN_OTP') {
     return 'pending_login_otp';
   }
@@ -635,8 +635,9 @@ async function persistSessionResult<TResponse>(
 }
 
 async function applySupabaseAuthResponse(response: AuthSupabaseSessionPayload) {
-  const accessToken = response.supabase_access_token?.trim() || null;
-  const refreshToken = response.supabase_refresh_token?.trim() || null;
+  console.log('applySupabaseAuthResponse', response);
+  const accessToken = response.supabase_token?.trim() || null;
+  const refreshToken = response.supabase_token?.trim() || null;
   const realtimeToken = response.supabase_token?.trim() || accessToken;
   const usesMockTokens =
     __DEV__ &&
@@ -666,10 +667,38 @@ async function verifyGoogleOAuthWithApi(
   return apiFetch<GoogleOAuthVerifyResponse>(AUTH_API.GOOGLE_OAUTH_VERIFY, {
     method: 'POST',
     body: {
-      fcm_token: payload.fcmToken ?? mockFCMToken,
+      fcm_token: payload.fcmToken ?? '',
       provider_token: payload.accessToken,
     } as any,
   });
+}
+
+export async function loginWithGoogleApi(
+  payload: GoogleOAuthLoginPayload
+): Promise<SessionActionResult<GoogleOAuthVerifyResponse>> {
+  const response = await verifyGoogleOAuthWithApi(payload);
+  const token = response.token.trim();
+
+  if (!token) {
+    throw new Error('Google login succeeded, but no API token was returned.');
+  }
+
+  const session = createAuthSession({
+    displayName: payload.displayName,
+    method: 'google',
+    nextStep: response.next_step,
+    user: response.data.user,
+  });
+
+  await Promise.all([
+    persistAuthSession(session, token),
+    applySupabaseAuthResponse(response),
+  ]);
+
+  return {
+    response,
+    session,
+  };
 }
 
 export async function loginWithApi(
@@ -893,68 +922,7 @@ export async function verifyLoginOtp(
 export async function loginWithGoogleSupabase(
   payload: GoogleOAuthLoginPayload
 ): Promise<SessionActionResult<GoogleSupabaseLoginResponse>> {
-  try {
-    const googleVerifyResponse = await verifyGoogleOAuthWithApi(payload);
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: payload.idToken,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (data.session) {
-      await syncSupabaseRealtimeAuth(data.session);
-    }
-
-    const supabaseUser = data.session?.user ?? data.user ?? null;
-
-    if (!supabaseUser) {
-      throw new Error('Supabase Google sign-in succeeded, but no user profile was returned.');
-    }
-
-    const session = data.session
-      ? createGoogleAuthSessionFromSupabaseSession(
-        data.session,
-        payload.displayName,
-        googleVerifyResponse.data.user,
-        googleVerifyResponse.next_step
-      )
-      : createGoogleAuthSessionFromSupabaseUser(
-        supabaseUser,
-        payload.displayName,
-        googleVerifyResponse.data.user,
-        googleVerifyResponse.next_step
-      );
-
-    await persistAuthSession(session, googleVerifyResponse.token);
-
-    return {
-      response: {
-        ...googleVerifyResponse,
-        data: {
-          ...googleVerifyResponse.data,
-          oauth_provider: 'google',
-        },
-      },
-      session,
-    };
-  } catch (verifyError) {
-    await Promise.allSettled([
-      clearSupabaseSession(),
-      clearPersistedAuth(),
-      supabaseChatRepository.clearRealtimeSubscriptions(),
-    ]);
-
-    if (verifyError instanceof ApiError) {
-      throw verifyError;
-    }
-
-    throw verifyError instanceof Error
-      ? verifyError
-      : new Error('Google sign-in failed.');
-  }
+  return loginWithGoogleApi(payload);
 }
 
 export async function registerWithApi(
