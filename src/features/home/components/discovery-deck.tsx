@@ -632,7 +632,9 @@ export function DiscoveryDeck() {
       try {
         let matched = false;
 
-        if (false) {
+        if (usingFallbackRef.current) {
+          setMockCards((current) => current.filter((item) => item.id !== activeCard.id));
+
         } else {
           const response = await swipeAction.mutateAsync({
             payload: { action },
