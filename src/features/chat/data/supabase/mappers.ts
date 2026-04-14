@@ -24,6 +24,7 @@ export type ConversationSummaryRow = {
   participant_name: string | null;
   participant_photo_url: string | null;
   participant_user_id: string | null;
+  participant_whatsapp_number?: string | null;
   title: string;
   unread_count: number;
   updated_at: string;
@@ -53,6 +54,7 @@ export function mapConversationSummaryRow(row: ConversationSummaryRow): ChatRoom
     kind: row.kind,
     headline: row.participant_headline,
     lastMessageAt: row.last_message_at ?? row.updated_at,
+    participantWhatsappNumber: row.participant_whatsapp_number ?? null,
     participantUserId: row.participant_user_id,
     photoUrl: row.participant_photo_url,
     preview: row.last_message_text ?? 'No messages yet',

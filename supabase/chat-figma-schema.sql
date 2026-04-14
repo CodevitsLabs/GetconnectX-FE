@@ -125,10 +125,13 @@ set
   photo_url = coalesce(public.profiles.photo_url, excluded.photo_url);
 
 alter table public.conversation_summaries
+  add column if not exists last_read_message_id uuid null references public.messages(id) on delete set null,
+  add column if not exists last_read_at timestamptz null,
   add column if not exists participant_user_id uuid null references auth.users(id) on delete set null,
   add column if not exists participant_name text null,
   add column if not exists participant_photo_url text null,
-  add column if not exists participant_headline text null;
+  add column if not exists participant_headline text null,
+  add column if not exists participant_whatsapp_number text null;
 
 create index if not exists idx_conversation_summaries_user_participant
   on public.conversation_summaries(user_id, participant_user_id);
@@ -149,6 +152,7 @@ declare
   other_profile_name text;
   other_profile_photo_url text;
   other_profile_headline text;
+  other_profile_whatsapp_number text;
 begin
   select *
   into room_record
@@ -173,6 +177,7 @@ begin
   other_profile_name := null;
   other_profile_photo_url := null;
   other_profile_headline := null;
+  other_profile_whatsapp_number := null;
 
   if room_record.type = 'direct' then
     select crm.user_id
@@ -194,6 +199,11 @@ begin
         other_profile_headline
       from public.profiles p
       where p.id = other_member_id;
+
+      select u.whatsapp_number
+      into other_profile_whatsapp_number
+      from public.users u
+      where u.id = other_member_id;
     end if;
   end if;
 
@@ -210,7 +220,8 @@ begin
     participant_user_id,
     participant_name,
     participant_photo_url,
-    participant_headline
+    participant_headline,
+    participant_whatsapp_number
   )
   values (
     member_room_id,
@@ -225,7 +236,8 @@ begin
     other_member_id,
     coalesce(other_profile_name, case when room_record.type = 'direct' then room_record.title else null end),
     other_profile_photo_url,
-    other_profile_headline
+    other_profile_headline,
+    other_profile_whatsapp_number
   )
   on conflict (user_id, conversation_id) do update
   set
@@ -238,7 +250,8 @@ begin
     participant_user_id = excluded.participant_user_id,
     participant_name = excluded.participant_name,
     participant_photo_url = excluded.participant_photo_url,
-    participant_headline = excluded.participant_headline;
+    participant_headline = excluded.participant_headline,
+    participant_whatsapp_number = excluded.participant_whatsapp_number;
 end;
 $$;
 
@@ -343,6 +356,38 @@ after insert or update on public.profiles
 for each row
 execute function public.handle_profile_update_sync_conversation_summaries();
 
+create or replace function public.handle_user_update_sync_conversation_summaries()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.conversation_summaries cs
+  set
+    participant_whatsapp_number = new.whatsapp_number,
+    updated_at = greatest(cs.updated_at, now())
+  from public.chat_room_members viewer
+  join public.chat_room_members participant
+    on participant.room_id = viewer.room_id
+   and participant.user_id = new.id
+   and participant.user_id <> viewer.user_id
+  join public.chat_rooms cr
+    on cr.id = viewer.room_id
+  where cr.type = 'direct'
+    and cs.conversation_id = viewer.room_id
+    and cs.user_id = viewer.user_id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists users_after_change_sync_conversation_summaries on public.users;
+create trigger users_after_change_sync_conversation_summaries
+after insert or update of whatsapp_number on public.users
+for each row
+execute function public.handle_user_update_sync_conversation_summaries();
+
 insert into public.conversation_summaries (
   conversation_id,
   user_id,
@@ -356,7 +401,8 @@ insert into public.conversation_summaries (
   participant_user_id,
   participant_name,
   participant_photo_url,
-  participant_headline
+  participant_headline,
+  participant_whatsapp_number
 )
 select
   crm.room_id,
@@ -371,7 +417,8 @@ select
   other_member.user_id,
   coalesce(p.name, case when cr.type = 'direct' then cr.title else null end),
   p.photo_url,
-  p.headline
+  p.headline,
+  u.whatsapp_number
 from public.chat_room_members crm
 join public.chat_rooms cr
   on cr.id = crm.room_id
@@ -395,6 +442,8 @@ left join lateral (
 ) other_member on cr.type = 'direct'
 left join public.profiles p
   on p.id = other_member.user_id
+left join public.users u
+  on u.id = other_member.user_id
 left join public.conversation_summaries existing
   on existing.user_id = crm.user_id
  and existing.conversation_id = crm.room_id
@@ -409,4 +458,5 @@ set
   participant_user_id = excluded.participant_user_id,
   participant_name = excluded.participant_name,
   participant_photo_url = excluded.participant_photo_url,
-  participant_headline = excluded.participant_headline;
+  participant_headline = excluded.participant_headline,
+  participant_whatsapp_number = excluded.participant_whatsapp_number;

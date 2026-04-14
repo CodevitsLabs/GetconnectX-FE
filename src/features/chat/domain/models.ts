@@ -7,6 +7,7 @@ export type ChatRoom = {
   preview: string;
   photoUrl?: string | null;
   headline?: string | null;
+  participantWhatsappNumber?: string | null;
   participantUserId?: string | null;
   title: string;
   unreadCount: number;

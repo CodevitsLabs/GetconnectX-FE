@@ -21,6 +21,33 @@ import {
 } from './mappers';
 
 const MESSAGE_PAGE_SIZE = 5;
+const CONVERSATION_SUMMARY_COLUMNS = [
+  'conversation_id',
+  'kind',
+  'last_message_at',
+  'last_message_text',
+  'participant_headline',
+  'participant_name',
+  'participant_photo_url',
+  'participant_user_id',
+  'participant_whatsapp_number',
+  'title',
+  'unread_count',
+  'updated_at',
+].join(', ');
+const LEGACY_CONVERSATION_SUMMARY_COLUMNS = [
+  'conversation_id',
+  'kind',
+  'last_message_at',
+  'last_message_text',
+  'participant_headline',
+  'participant_name',
+  'participant_photo_url',
+  'participant_user_id',
+  'title',
+  'unread_count',
+  'updated_at',
+].join(', ');
 
 type RoomChannelState = {
   channel: RealtimeChannel;
@@ -49,8 +76,8 @@ type SummaryChannelState = {
 };
 
 function createDeferred() {
-  let resolve: () => void = () => {};
-  let reject: (error: Error) => void = () => {};
+  let resolve: () => void = () => { };
+  let reject: (error: Error) => void = () => { };
 
   const promise = new Promise<void>((innerResolve, innerReject) => {
     resolve = innerResolve;
@@ -58,6 +85,20 @@ function createDeferred() {
   });
 
   return { promise, reject, resolve };
+}
+
+function isMissingWhatsappColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const code = 'code' in error ? error.code : null;
+  const message = 'message' in error ? error.message : null;
+
+  return (
+    code === 'PGRST204' ||
+    (typeof message === 'string' && message.includes('participant_whatsapp_number'))
+  );
 }
 
 async function getCurrentIdentity() {
@@ -108,12 +149,19 @@ class SupabaseChatRepository implements ChatRepository {
   async getConversationSummaries(): Promise<ChatRoom[]> {
     const { userId } = await getCurrentIdentity();
 
-    const { data, error } = await supabase
+    let summaryQuery = await supabase
       .from('conversation_summaries')
-      .select(
-        'conversation_id, kind, last_message_at, last_message_text, participant_headline, participant_name, participant_photo_url, participant_user_id, title, unread_count, updated_at'
-      )
+      .select(CONVERSATION_SUMMARY_COLUMNS)
       .eq('user_id', userId);
+
+    if (summaryQuery.error && isMissingWhatsappColumnError(summaryQuery.error)) {
+      summaryQuery = await supabase
+        .from('conversation_summaries')
+        .select(LEGACY_CONVERSATION_SUMMARY_COLUMNS)
+        .eq('user_id', userId);
+    }
+
+    const { data, error } = summaryQuery;
 
     if (error) {
       throw error;

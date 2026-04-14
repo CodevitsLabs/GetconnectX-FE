@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Alert,
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
@@ -89,6 +90,20 @@ function getConversationSubtitle(conversation: ChatRoom | null, onlineCount: num
   }
 
   return getPresenceLabel(onlineCount);
+}
+
+function normalizeDialableNumber(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/[^\d+]/g, '');
 }
 
 function formatBytes(value: number | null | undefined) {
@@ -302,6 +317,20 @@ function ConversationPanel({
     [messagesQuery.data]
   );
   const newestMessageId = messages.at(-1)?.id ?? null;
+  const handleCallPress = React.useCallback(async () => {
+    const phoneNumber = normalizeDialableNumber(conversation?.participantWhatsappNumber);
+
+    if (!phoneNumber) {
+      Alert.alert('Call unavailable', 'This user does not have a phone number available yet.');
+      return;
+    }
+
+    try {
+      await Linking.openURL(`tel:${phoneNumber}`);
+    } catch {
+      Alert.alert('Call unavailable', 'Your device could not open the phone dialer.');
+    }
+  }, [conversation?.participantWhatsappNumber]);
 
   useRoomTyping(roomId, draftMessage, isChatEnabled && Boolean(roomId));
 
@@ -453,7 +482,13 @@ function ConversationPanel({
           </AppText>
         </View>
 
-        <Pressable className="h-12 w-12 items-center justify-center rounded-full bg-[#2E2C2B] active:opacity-70">
+        <Pressable
+          className="h-12 w-12 items-center justify-center rounded-full bg-[#2E2C2B] active:opacity-70"
+          disabled={!conversation.participantWhatsappNumber}
+          onPress={() => {
+            void handleCallPress();
+          }}
+          style={{ opacity: conversation.participantWhatsappNumber ? 1 : 0.45 }}>
           <Ionicons color="#BDB7AF" name="call-outline" size={22} />
         </Pressable>
 
