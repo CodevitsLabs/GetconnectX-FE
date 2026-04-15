@@ -14,10 +14,9 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { REVENUECAT_OFFERING_IDS, useRevenueCat } from '@features/revenuecat';
-import { AppCard, AppText } from '@shared/components';
+import { AppCard, AppText, AppTopBar } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 import { Shadows } from '@shared/theme';
 
@@ -853,7 +852,6 @@ function EmptyState({
 }
 
 export function DiscoveryDeck() {
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const usingMockCards = isDiscoveryCardsMockEnabled();
   const { isConnectXProActive, presentPaywallForOffering, presentPaywallIfNeeded, supported } =
@@ -1370,15 +1368,45 @@ export function DiscoveryDeck() {
     />
   );
 
+  const filterButton = (
+    <Pressable
+      className="flex-row items-center gap-2 rounded-full border px-3 py-2"
+      onPress={handleOpenFilters}
+      style={{
+        borderColor:
+          appliedFilterCount > 0 || appliedMode
+            ? 'rgba(255, 154, 62, 0.38)'
+            : 'rgba(152, 162, 179, 0.18)',
+      }}>
+      <Ionicons
+        color={appliedFilterCount > 0 || appliedMode ? '#FF9A3E' : '#D0D5DD'}
+        name="options-outline"
+        size={16}
+      />
+      {appliedFilterCount > 0 ? (
+        <View
+          className="min-w-6 items-center rounded-full px-2 py-0.5"
+          style={{ backgroundColor: '#2A2117' }}>
+          <AppText className="text-[11px]" tone="signal" variant="code">
+            {appliedFilterCount}
+          </AppText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+
   if (!currentItem && discoveryQuery.isLoading && !usingLocalMockCards) {
     return (
-      <View className="flex-1 justify-center px-4" style={{ paddingTop: insets.top }}>
-        <AppCard className="gap-3 rounded-[24px] p-4">
-          <AppText variant="title">Loading discovery deck...</AppText>
-          <AppText tone="muted">
-            Pulling the latest discovery cards and match signals for this account.
-          </AppText>
-        </AppCard>
+      <View className="flex-1">
+        <AppTopBar rightAccessory={filterButton} />
+        <View className="flex-1 justify-center px-4">
+          <AppCard className="gap-3 rounded-[24px] p-4">
+            <AppText variant="title">Loading discovery deck...</AppText>
+            <AppText tone="muted">
+              Pulling the latest discovery cards and match signals for this account.
+            </AppText>
+          </AppCard>
+        </View>
         {filterSheet}
       </View>
     );
@@ -1386,20 +1414,23 @@ export function DiscoveryDeck() {
 
   if (!currentItem) {
     return (
-      <View className="flex-1 justify-center px-4" style={{ paddingTop: insets.top }}>
-        <EmptyState
-          isLoadingMore={Boolean(discoveryQuery.hasNextPage && discoveryQuery.isFetchingNextPage)}
-          onResetFallback={() => setMockCards(getFallbackCards(appliedMode))}
-          usingMockData={usingLocalMockCards}
-        />
-        <View className="mt-8 flex-row items-center justify-center gap-6">
-          <DeckActionButton
-            color="#FFCD38"
-            disabled={history.length === 0}
-            icon="refresh"
-            onPress={handleRewind}
-            size="medium"
+      <View className="flex-1">
+        <AppTopBar rightAccessory={filterButton} />
+        <View className="flex-1 justify-center px-4">
+          <EmptyState
+            isLoadingMore={Boolean(discoveryQuery.hasNextPage && discoveryQuery.isFetchingNextPage)}
+            onResetFallback={() => setMockCards(getFallbackCards(appliedMode))}
+            usingMockData={usingLocalMockCards}
           />
+          <View className="mt-8 flex-row items-center justify-center gap-6">
+            <DeckActionButton
+              color="#FFCD38"
+              disabled={history.length === 0}
+              icon="refresh"
+              onPress={handleRewind}
+              size="medium"
+            />
+          </View>
         </View>
         {filterSheet}
       </View>
@@ -1407,158 +1438,126 @@ export function DiscoveryDeck() {
   }
 
   return (
-    <View className="flex-1 gap-2 px-4 pb-1" style={{ paddingTop: insets.top }}>
-      {matchToastName ? (
-        <View className="absolute inset-x-4 top-2 z-20" pointerEvents="none">
-          <AppCard
-            className="gap-1 rounded-[18px] border px-4 py-3"
-            style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.96)',
-              borderColor: 'rgba(209, 250, 229, 0.72)',
-            }}>
-            <AppText className="text-[12px] uppercase tracking-[1px]" style={{ color: '#052E16' }} variant="label">
-              Mock Match
-            </AppText>
-            <AppText className="text-[15px]" style={{ color: '#052E16' }} variant="bodyStrong">
-              You and {matchToastName} liked each other.
-            </AppText>
-          </AppCard>
-        </View>
-      ) : null}
-
-      <View className="flex-row items-center justify-between">
-        <AppText variant="title">Discover</AppText>
-        <Pressable
-          className="flex-row items-center gap-2 rounded-full border px-3 py-2"
-          onPress={handleOpenFilters}
-          style={{
-            backgroundColor: '#1A1C22',
-            borderColor:
-              appliedFilterCount > 0 || appliedMode
-                ? 'rgba(255, 154, 62, 0.38)'
-                : 'rgba(152, 162, 179, 0.18)',
-          }}>
-          <Ionicons
-            color={appliedFilterCount > 0 || appliedMode ? '#FF9A3E' : '#D0D5DD'}
-            name="options-outline"
-            size={16}
-          />
-          <AppText
-            className="text-[13px]"
-            style={{ color: appliedFilterCount > 0 || appliedMode ? '#FF9A3E' : '#D0D5DD' }}
-            variant="bodyStrong">
-            Filter
-          </AppText>
-          {appliedFilterCount > 0 ? (
-            <View
-              className="min-w-6 items-center rounded-full px-2 py-0.5"
-              style={{ backgroundColor: '#2A2117' }}>
-              <AppText className="text-[11px]" tone="signal" variant="code">
-                {appliedFilterCount}
+    <View className="flex-1">
+      <AppTopBar rightAccessory={filterButton} />
+      <View className="flex-1 gap-2 px-4 pb-1">
+        {matchToastName ? (
+          <View className="absolute inset-x-4 top-2 z-20" pointerEvents="none">
+            <AppCard
+              className="gap-1 rounded-[18px] border px-4 py-3"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.96)',
+                borderColor: 'rgba(209, 250, 229, 0.72)',
+              }}>
+              <AppText className="text-[12px] uppercase tracking-[1px]" style={{ color: '#052E16' }} variant="label">
+                Mock Match
               </AppText>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
+              <AppText className="text-[15px]" style={{ color: '#052E16' }} variant="bodyStrong">
+                You and {matchToastName} liked each other.
+              </AppText>
+            </AppCard>
+          </View>
+        ) : null}
 
-      {filterError ? (
-        <AppCard tone="signal" className="gap-2 rounded-[16px] p-3">
-          <AppText variant="subtitle">Discovery search</AppText>
-          <AppText tone="muted">{filterError}</AppText>
-        </AppCard>
-      ) : null}
+        {filterError ? (
+          <AppCard tone="signal" className="gap-2 rounded-[16px] p-3">
+            <AppText variant="subtitle">Discovery search</AppText>
+            <AppText tone="muted">{filterError}</AppText>
+          </AppCard>
+        ) : null}
 
 
-      <View className="flex-1 mt-6">
-        <View className="h-full w-full">
-          {nextItem ? (
-            <Animated.View
-              className="absolute inset-0 overflow-hidden rounded-[24px] border border-border bg-background"
-              style={[Shadows.card, nextCardStyle]}>
-              <ScrollView className="flex-1" scrollEnabled={false} showsVerticalScrollIndicator={false}>
-                <DiscoveryCardContent card={nextItem} />
-              </ScrollView>
-            </Animated.View>
-          ) : null}
-
-          <GestureDetector gesture={panGesture}>
-            <Animated.View
-              className="absolute inset-0 overflow-hidden rounded-[24px] border border-border bg-surface"
-              style={[Shadows.card, topCardStyle]}>
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                <DiscoveryCardContent card={currentItem} />
-              </ScrollView>
-
+        <View className="flex-1 mt-6">
+          <View className="h-full w-full">
+            {nextItem ? (
               <Animated.View
-                className="absolute left-4 top-5 rounded-full border border-signal bg-signal-tint px-3 py-1.5"
-                style={leftBadgeStyle}>
-                <AppText className="text-[12px]" tone="signal" variant="label">
-                  Pass
-                </AppText>
+                className="absolute inset-0 overflow-hidden rounded-[24px] border border-border bg-background"
+                style={[Shadows.card, nextCardStyle]}>
+                <ScrollView className="flex-1" scrollEnabled={false} showsVerticalScrollIndicator={false}>
+                  <DiscoveryCardContent card={nextItem} />
+                </ScrollView>
               </Animated.View>
+            ) : null}
 
+            <GestureDetector gesture={panGesture}>
               <Animated.View
-                className="absolute right-4 top-5 rounded-full border border-accent bg-accent-tint px-3 py-1.5"
-                style={rightBadgeStyle}>
-                <AppText className="text-[12px]" tone="accent" variant="label">
-                  Like
-                </AppText>
+                className="absolute inset-0 overflow-hidden rounded-[24px] border border-border bg-surface"
+                style={[Shadows.card, topCardStyle]}>
+                <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                  <DiscoveryCardContent card={currentItem} />
+                </ScrollView>
+
+                <Animated.View
+                  className="absolute left-4 top-5 rounded-full border border-signal bg-signal-tint px-3 py-1.5"
+                  style={leftBadgeStyle}>
+                  <AppText className="text-[12px]" tone="signal" variant="label">
+                    Pass
+                  </AppText>
+                </Animated.View>
+
+                <Animated.View
+                  className="absolute right-4 top-5 rounded-full border border-accent bg-accent-tint px-3 py-1.5"
+                  style={rightBadgeStyle}>
+                  <AppText className="text-[12px]" tone="accent" variant="label">
+                    Like
+                  </AppText>
+                </Animated.View>
               </Animated.View>
-            </Animated.View>
-          </GestureDetector>
+            </GestureDetector>
+          </View>
         </View>
-      </View>
 
-      <View className="flex-row items-center justify-center gap-4">
-        <DeckActionButton
-          color="#EF4444"
-          disabled={isSubmitting}
-          icon="close"
-          onPress={() => beginSwipe('left')}
-          size="medium"
-        />
-        <DeckActionButton
-          color="#FFCD38"
-          disabled={history.length === 0 || isSubmitting}
-          icon="refresh"
-          onPress={handleRewind}
-          size="small"
-        />
-        <DeckActionButton
-          color="#FF9A3E"
-          disabled={isSubmitting}
-          icon="flash"
-          onPress={handleSuperLike}
-          size="large"
-          variant="filled"
-        />
-        <DeckActionButton
-          color="#10B981"
-          disabled={isSubmitting}
-          icon="checkmark"
-          onPress={() => beginSwipe('right')}
-          size="medium"
-        />
-      </View>
+        <View className="flex-row items-center justify-center gap-4">
+          <DeckActionButton
+            color="#EF4444"
+            disabled={isSubmitting}
+            icon="close"
+            onPress={() => beginSwipe('left')}
+            size="medium"
+          />
+          <DeckActionButton
+            color="#FFCD38"
+            disabled={history.length === 0 || isSubmitting}
+            icon="refresh"
+            onPress={handleRewind}
+            size="small"
+          />
+          <DeckActionButton
+            color="#FF9A3E"
+            disabled={isSubmitting}
+            icon="flash"
+            onPress={handleSuperLike}
+            size="large"
+            variant="filled"
+          />
+          <DeckActionButton
+            color="#10B981"
+            disabled={isSubmitting}
+            icon="checkmark"
+            onPress={() => beginSwipe('right')}
+            size="medium"
+          />
+        </View>
 
-      {actionError ? (
-        <AppCard
-          className="mt-3 rounded-[18px] border-[#6D3A32] bg-[#332320] px-4 py-3"
-          style={{ shadowColor: 'transparent' }}>
-          <AppText className="text-[#F7DDD8]" variant="bodyStrong">
-            Discovery action failed
+        {actionError ? (
+          <AppCard
+            className="mt-3 rounded-[18px] border-[#6D3A32] bg-[#332320] px-4 py-3"
+            style={{ shadowColor: 'transparent' }}>
+            <AppText className="text-[#F7DDD8]" variant="bodyStrong">
+              Discovery action failed
+            </AppText>
+            <AppText className="mt-1 text-[#D9A49C]">{actionError}</AppText>
+          </AppCard>
+        ) : null}
+
+        {Boolean(discoveryQuery.hasNextPage && discoveryQuery.isFetchingNextPage) ? (
+          <AppText align="center" className="text-[10px]" tone="muted" variant="code">
+            Loading more cards...
           </AppText>
-          <AppText className="mt-1 text-[#D9A49C]">{actionError}</AppText>
-        </AppCard>
-      ) : null}
+        ) : null}
 
-      {Boolean(discoveryQuery.hasNextPage && discoveryQuery.isFetchingNextPage) ? (
-        <AppText align="center" className="text-[10px]" tone="muted" variant="code">
-          Loading more cards...
-        </AppText>
-      ) : null}
-
-      {filterSheet}
+        {filterSheet}
+      </View>
     </View>
   );
 }

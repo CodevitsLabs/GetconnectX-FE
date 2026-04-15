@@ -11,7 +11,11 @@ const CONNECTX_LOGO = require('../../../assets/images/connectx-logo.png');
 const ACCENT = '#FF9A3E';
 const HEADER_BG = '#232323';
 
-export function AppTopBar() {
+type AppTopBarProps = {
+  rightAccessory?: React.ReactNode;
+};
+
+export function AppTopBar({ rightAccessory }: AppTopBarProps) {
   const { isConnectXProActive } = useRevenueCat();
   const badgeLabel = isConnectXProActive ? 'V1 PREMIUM' : 'V1 FREE';
 
@@ -41,6 +45,8 @@ export function AppTopBar() {
           {badgeLabel}
         </AppText>
       </View>
+      <View className="flex-1" />
+      {rightAccessory}
     </View>
   );
 }
