@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
-import { AppButton, AppCard, AppInput, AppText } from '@shared/components';
+import { AppButton, AppCard, AppInput, AppText, AppTopBar } from '@shared/components';
 import { Shadows } from '@shared/theme';
 
 import { useCreateStartupInvitation, useTeamOverview } from '../hooks/use-team';
@@ -42,7 +42,7 @@ function InfoPill({
 }) {
   return (
     <View className="rounded-full border border-[#FF9A3E]/30 bg-[#FF9A3E]/10 px-4 py-2">
-      <AppText tone="accent" variant="body">
+      <AppText className="text-[#FF9A3E]" variant="body">
         {label}
       </AppText>
     </View>
@@ -52,9 +52,9 @@ function InfoPill({
 function MemberCard({ member }: { member: TeamMember }) {
   return (
     <View
-      className="flex-row items-center gap-4 rounded-[20px] border border-border bg-[#1A1A1F] px-4 py-4"
+      className="flex-row items-center gap-4 rounded-[20px] border border-white/10 bg-[#2C2C2C] px-4 py-4"
       style={Shadows.card}>
-      <View className="h-16 w-16 items-center justify-center overflow-hidden rounded-[16px] bg-[#11131A]">
+      <View className="h-16 w-16 items-center justify-center overflow-hidden rounded-[16px] bg-[#3A3A3C]">
         {member.avatarUrl ? (
           <Image contentFit="cover" source={{ uri: member.avatarUrl }} style={{ height: '100%', width: '100%' }} />
         ) : (
@@ -67,7 +67,7 @@ function MemberCard({ member }: { member: TeamMember }) {
       <View className="flex-1 gap-1">
         <AppText variant="subtitle">{member.role.label}</AppText>
         <AppText className="text-[13px]" tone="muted">{member.name}</AppText>
-        <AppText className="text-[13px]" tone="accent" variant="bodyStrong">
+        <AppText className="text-[13px] text-[#FF9A3E]" variant="bodyStrong">
           Equity: {member.equityPercent}%
         </AppText>
       </View>
@@ -76,7 +76,7 @@ function MemberCard({ member }: { member: TeamMember }) {
         <View className="flex-row gap-2">
           {member.isCurrentUser && (
             <View className="rounded-full bg-[#FF9A3E]/15 px-2 py-0.5 border border-[#FF9A3E]/30">
-              <AppText className="text-[11px]" tone="accent" variant="label">You</AppText>
+              <AppText className="text-[11px] text-[#FF9A3E]" variant="label">You</AppText>
             </View>
           )}
         </View>
@@ -89,9 +89,9 @@ function MemberCard({ member }: { member: TeamMember }) {
 function MissingRoleCard({ label, onFind }: { label: string; onFind: () => void }) {
   return (
     <View
-      className="flex-row items-center gap-4 rounded-[20px] border border-border bg-[#1A1A1F] px-4 py-4"
+      className="flex-row items-center gap-4 rounded-[20px] border border-white/10 bg-[#2C2C2C] px-4 py-4"
       style={Shadows.card}>
-      <View className="h-16 w-16 items-center justify-center rounded-[16px] bg-[#11131A]">
+      <View className="h-16 w-16 items-center justify-center rounded-[16px] bg-[#3A3A3C]">
         <View className="h-12 w-12 items-center justify-center rounded-xl bg-border/20">
           <Ionicons color="#98A2B3" name="add" size={28} />
         </View>
@@ -105,7 +105,7 @@ function MissingRoleCard({ label, onFind }: { label: string; onFind: () => void 
       <Pressable
         className="rounded-lg border border-[#FF9A3E] px-4 py-2"
         onPress={onFind}>
-        <AppText className="text-[13px]" tone="accent" variant="bodyStrong">Find</AppText>
+        <AppText className="text-[13px] text-[#FF9A3E]" variant="bodyStrong">Find</AppText>
       </Pressable>
     </View>
   );
@@ -129,7 +129,7 @@ function ActionButton({
     <Pressable
       className={isPrimary
         ? 'min-h-[56px] flex-1 flex-row items-center justify-center gap-3 rounded-[18px] bg-[#FF9A3E] px-5 py-4'
-        : 'min-h-[56px] flex-1 flex-row items-center justify-center gap-3 rounded-[18px] border border-border bg-[#1A1A1F] px-5 py-4'}
+        : 'min-h-[56px] flex-1 flex-row items-center justify-center gap-3 rounded-[18px] border border-white/10 bg-[#2C2C2C] px-5 py-4'}
       onPress={onPress}
       style={Shadows.card}>
       <Ionicons color={iconColor} name={icon} size={22} />
@@ -197,23 +197,26 @@ export function TeamScreen() {
   if (teamOverviewQuery.isPending && !overview) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Team' }} />
-        <ScrollView
-          className="flex-1 bg-canvas"
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 96,
-            paddingHorizontal: 20,
-            paddingTop: insets.top + 16,
-          }}
-          contentInsetAdjustmentBehavior="automatic">
+        <Stack.Screen options={{ title: 'Team', headerShown: false }} />
+        <View className="flex-1" style={{ backgroundColor: '#262626' }}>
+          <AppTopBar />
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + 96,
+              paddingHorizontal: 20,
+              paddingTop: 16,
+            }}
+            contentInsetAdjustmentBehavior="automatic">
 
-          <AppCard className="gap-3">
-            <AppText variant="subtitle">Loading team</AppText>
-            <AppText tone="muted">
-              Pulling the latest startup details and team structure.
-            </AppText>
-          </AppCard>
-        </ScrollView>
+            <AppCard className="gap-3">
+              <AppText variant="subtitle">Loading team</AppText>
+              <AppText tone="muted">
+                Pulling the latest startup details and team structure.
+              </AppText>
+            </AppCard>
+          </ScrollView>
+        </View>
       </>
     );
   }
@@ -223,40 +226,43 @@ export function TeamScreen() {
 
     return (
       <>
-        <Stack.Screen options={{ title: 'Team' }} />
-        <ScrollView
-          className="flex-1 bg-canvas"
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 96,
-            paddingHorizontal: 20,
-            paddingTop: insets.top + 16,
-          }}
-          contentInsetAdjustmentBehavior="automatic">
-          <AppCard className="gap-4">
-            <View className="flex-row items-center gap-3">
-              <Ionicons
-                color={isNoStartupState ? '#98A2B3' : '#FF9A3E'}
-                name={isNoStartupState ? 'people-outline' : 'alert-circle-outline'}
-                size={24}
-              />
-              <AppText variant="subtitle">
-                {isNoStartupState ? 'No startup team yet' : 'Unable to load team'}
+        <Stack.Screen options={{ title: 'Team', headerShown: false }} />
+        <View className="flex-1" style={{ backgroundColor: '#262626' }}>
+          <AppTopBar />
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + 96,
+              paddingHorizontal: 20,
+              paddingTop: 16,
+            }}
+            contentInsetAdjustmentBehavior="automatic">
+            <AppCard className="gap-4">
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  color={isNoStartupState ? '#98A2B3' : '#FF9A3E'}
+                  name={isNoStartupState ? 'people-outline' : 'alert-circle-outline'}
+                  size={24}
+                />
+                <AppText variant="subtitle">
+                  {isNoStartupState ? 'No startup team yet' : 'Unable to load team'}
+                </AppText>
+              </View>
+              <AppText tone="muted">
+                {isNoStartupState
+                  ? 'This account is not linked to an active startup yet. Once you create or join a startup team, it will show up here.'
+                  : 'We could not load your startup team right now. Try again in a moment.'}
               </AppText>
-            </View>
-            <AppText tone="muted">
-              {isNoStartupState
-                ? 'This account is not linked to an active startup yet. Once you create or join a startup team, it will show up here.'
-                : 'We could not load your startup team right now. Try again in a moment.'}
-            </AppText>
-            <AppButton
-              label={teamOverviewQuery.isRefetching ? 'Refreshing...' : 'Try Again'}
-              onPress={() => {
-                void teamOverviewQuery.refetch();
-              }}
-              variant="secondary"
-            />
-          </AppCard>
-        </ScrollView>
+              <AppButton
+                label={teamOverviewQuery.isRefetching ? 'Refreshing...' : 'Try Again'}
+                onPress={() => {
+                  void teamOverviewQuery.refetch();
+                }}
+                variant="secondary"
+              />
+            </AppCard>
+          </ScrollView>
+        </View>
       </>
     );
   }
@@ -271,10 +277,11 @@ export function TeamScreen() {
     <>
       <Stack.Screen options={{ title: '', headerShown: false }} />
       <View
-        className="flex-1 bg-[#11131A]"
-        style={{ paddingTop: insets.top }}>
+        className="flex-1"
+        style={{ backgroundColor: '#262626' }}>
+        <AppTopBar />
 
-        <View className="flex-row items-center gap-3 px-5 pb-6">
+        <View className="flex-row items-center gap-3 px-5 pb-6 pt-2">
           <Ionicons color="#FF9A3E" name="rocket" size={28} />
           <AppText className="text-2xl font-bold text-text">Startup Team Builder</AppText>
         </View>
@@ -289,7 +296,7 @@ export function TeamScreen() {
           showsVerticalScrollIndicator={false}>
 
 
-          <AppCard className="gap-6 bg-[#1A1A1F] border-border/50">
+          <AppCard className="gap-6 bg-[#2C2C2C] border-white/10">
             <View className="gap-4">
               <View className="gap-1 border-b border-border/30 pb-4">
                 <AppText tone="muted" variant="label">Startup Name</AppText>
@@ -323,15 +330,15 @@ export function TeamScreen() {
             </View>
           </AppCard>
 
-          <AppCard className="gap-4 bg-[#1A1A1F] border-border/50">
+          <AppCard className="gap-4 bg-[#2C2C2C] border-white/10">
             <View className="flex-row items-center justify-between">
               <AppText className="text-[15px] font-semibold text-text">Team Completeness</AppText>
-              <AppText tone="accent" className="text-[17px] font-bold">
+              <AppText className="text-[17px] font-bold text-[#FF9A3E]">
                 {overview.data.teamCompleteness.percent}%
               </AppText>
             </View>
 
-            <View className="h-2.5 overflow-hidden rounded-full bg-[#11131A] border border-border/20">
+            <View className="h-2.5 overflow-hidden rounded-full bg-[#3A3A3C] border border-white/10">
               <View
                 className="h-full rounded-full bg-[#FF9A3E]"
                 style={{ width: `${overview.data.teamCompleteness.percent}%` }}
@@ -353,12 +360,12 @@ export function TeamScreen() {
 
           {inviteSuccessMessage ? (
             <View className="rounded-[18px] border border-[#FF9A3E]/30 bg-[#FF9A3E]/10 px-4 py-3">
-              <AppText tone="accent" variant="bodyStrong">{inviteSuccessMessage}</AppText>
+              <AppText className="text-[#FF9A3E]" variant="bodyStrong">{inviteSuccessMessage}</AppText>
             </View>
           ) : null}
 
           {inviteComposerVisible ? (
-            <AppCard className="gap-4 bg-[#1A1A1F] border-border/50">
+            <AppCard className="gap-4 bg-[#2C2C2C] border-white/10">
               <View className="gap-1">
                 <AppText variant="subtitle">Invite by email</AppText>
                 <AppText tone="muted">
@@ -371,6 +378,7 @@ export function TeamScreen() {
                 autoCorrect={false}
                 keyboardType="email-address"
                 label="Email"
+                className="bg-[#3A3A3C] border-none"
                 onChangeText={(value) => {
                   setInviteEmail(value);
                   if (inviteError) {
@@ -389,7 +397,7 @@ export function TeamScreen() {
 
               <View className="flex-row gap-3">
                 <AppButton
-                  className="flex-1"
+                  className="flex-1 bg-[#3A3A3C] border-white/10"
                   disabled={createStartupInvitationMutation.isPending}
                   label="Cancel"
                   onPress={closeInviteComposer}

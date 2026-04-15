@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppButton, AppCard, AppText } from '@shared/components';
+import { AppCard, AppText } from '@shared/components';
 
 import type {
   DiscoveryAppliedFilters,
@@ -26,6 +26,7 @@ type DiscoveryFilterSheetProps = {
   currentMode: DiscoveryMode;
   errorMessage?: string | null;
   goalOptions: DiscoveryFilterOption[];
+  hasConnectXPro?: boolean;
   initialAppliedMode: DiscoveryMode | null;
   initialFilters: DiscoveryAppliedFilters;
   isApplying?: boolean;
@@ -43,6 +44,32 @@ const GOAL_MODE_MAP: Record<DiscoveryGoalId, DiscoveryMode> = {
   goal_explore_startups: 'explore_startups',
   goal_joining_startups: 'joining_startups',
 };
+
+function isPremiumDiscoverySection(section?: DiscoveryFilterSection) {
+  return Boolean(section?.access?.requiresEntitlement);
+}
+
+function isDisabledDiscoveryFilterSection(section: DiscoveryFilterSection | undefined, hasConnectXPro = false) {
+  if (!section || !isPremiumDiscoverySection(section)) {
+    return false;
+  }
+
+  return !(section.access?.enabled || hasConnectXPro);
+}
+
+function stripDisabledDiscoveryFilters(
+  filters: DiscoveryAppliedFilters,
+  sections: DiscoveryFilterSection[],
+  hasConnectXPro = false
+) {
+  const sectionMap = new Map(sections.map((section) => [section.id, section]));
+
+  return Object.fromEntries(
+    Object.entries(filters).filter(
+      ([sectionId]) => !isDisabledDiscoveryFilterSection(sectionMap.get(sectionId), hasConnectXPro)
+    )
+  );
+}
 
 function sectionIcon(sectionId: string): keyof typeof Ionicons.glyphMap {
   switch (sectionId) {
@@ -143,15 +170,20 @@ function getDefaultSectionValue(section: DiscoveryFilterSection) {
 
 function buildInitialDraft(
   sections: DiscoveryFilterSection[],
-  initialFilters: DiscoveryAppliedFilters
+  initialFilters: DiscoveryAppliedFilters,
+  hasConnectXPro = false
 ) {
+  const enabledInitialFilters = stripDisabledDiscoveryFilters(initialFilters, sections, hasConnectXPro);
+
   return sections.reduce<DiscoveryAppliedFilters>((draft, section) => {
     if (section.id === 'goal') {
       return draft;
     }
 
     draft[section.id] =
-      initialFilters[section.id] !== undefined ? initialFilters[section.id] : getDefaultSectionValue(section);
+      enabledInitialFilters[section.id] !== undefined
+        ? enabledInitialFilters[section.id]
+        : getDefaultSectionValue(section);
     return draft;
   }, {});
 }
@@ -169,24 +201,32 @@ function clampRangeValue(value: number, min: number, max: number, step: number) 
 
 function OptionChip({
   active,
+  disabled = false,
   label,
   onPress,
 }: {
   active: boolean;
+  disabled?: boolean;
   label: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       className="rounded-full border px-4 py-2"
+      disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: active ? '#2A2117' : '#1A1C22',
-        borderColor: active ? 'rgba(255, 154, 62, 0.5)' : 'rgba(152, 162, 179, 0.18)',
+        backgroundColor: disabled ? '#17191E' : active ? '#2A2117' : '#2C2C2C',
+        borderColor: disabled
+          ? 'rgba(102, 112, 133, 0.18)'
+          : active
+            ? 'rgba(255, 154, 62, 0.5)'
+            : 'rgba(255, 255, 255, 0.1)',
+        opacity: disabled ? 0.6 : 1,
       }}>
       <AppText
         className="text-[13px]"
-        style={{ color: active ? '#FFB05B' : '#98A2B3' }}
+        style={{ color: disabled ? '#667085' : active ? '#FFB05B' : '#98A2B3' }}
         variant="bodyStrong">
         {label}
       </AppText>
@@ -209,27 +249,27 @@ function GoalCard({
 }) {
   return (
     <Pressable
-      className="min-h-[100px] flex-1 rounded-[24px] border px-5 py-4"
+      className="h-[82px] w-full rounded-[16px] border px-3.5 py-3"
       onPress={onPress}
       style={{
-        backgroundColor: active ? '#3B2A1C' : '#1B1D22',
-        borderColor: active ? '#FF9A3E' : 'rgba(152, 162, 179, 0.16)',
+        backgroundColor: active ? '#3B2A1C' : '#2C2C2C',
+        borderColor: active ? '#FF9A3E' : 'rgba(255, 255, 255, 0.1)',
         shadowColor: active ? '#FF9A3E' : 'transparent',
         shadowOpacity: active ? 0.22 : 0,
         shadowRadius: active ? 8 : 0,
       }}>
-      <View className="gap-3">
-        <View className="flex-row items-center gap-3">
-          <Ionicons color={active ? '#FF9A3E' : '#98A2B3'} name={goalIcon(goalId)} size={20} />
+      <View className="gap-1.5">
+        <View className="flex-row items-center gap-2">
+          <Ionicons color={active ? '#FF9A3E' : '#98A2B3'} name={goalIcon(goalId)} size={16} />
           <AppText
-            className="flex-1 text-[15px]"
-            style={{ color: active ? '#FF9A3E' : '#F2F4F7' }}
-            variant="subtitle">
+            className="flex-1 text-[13px] font-semibold"
+            numberOfLines={1}
+            style={{ color: active ? '#FF9A3E' : '#F2F4F7' }}>
             {label}
           </AppText>
         </View>
         {description ? (
-          <AppText className="text-[13px]" tone="muted">
+          <AppText className="text-[11px] leading-[15px]" numberOfLines={2} style={{ color: active ? '#E3934B' : '#98A2B3' }}>
             {description}
           </AppText>
         ) : null}
@@ -239,10 +279,12 @@ function GoalCard({
 }
 
 function RangeControl({
+  disabled = false,
   field,
   onChange,
   value,
 }: {
+  disabled?: boolean;
   field: DiscoveryFilterField;
   onChange: (value: number) => void;
   value: number;
@@ -289,10 +331,18 @@ function RangeControl({
         <View
           className="justify-center"
           onLayout={handleTrackLayout}
-          onMoveShouldSetResponder={() => true}
-          onResponderGrant={(event) => updateValueFromPosition(event.nativeEvent.locationX)}
-          onResponderMove={(event) => updateValueFromPosition(event.nativeEvent.locationX)}
-          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => !disabled}
+          onResponderGrant={(event) => {
+            if (!disabled) {
+              updateValueFromPosition(event.nativeEvent.locationX);
+            }
+          }}
+          onResponderMove={(event) => {
+            if (!disabled) {
+              updateValueFromPosition(event.nativeEvent.locationX);
+            }
+          }}
+          onStartShouldSetResponder={() => !disabled}
           style={{ height: 30 }}>
           <View
             style={{
@@ -308,7 +358,7 @@ function RangeControl({
           />
           <View
             style={{
-              backgroundColor: '#FF9A3E',
+              backgroundColor: disabled ? '#667085' : '#FF9A3E',
               borderRadius: 999,
               height: 6,
               left: 0,
@@ -319,7 +369,7 @@ function RangeControl({
           />
           <View
             style={{
-              backgroundColor: '#FF9A3E',
+              backgroundColor: disabled ? '#98A2B3' : '#FF9A3E',
               borderColor: '#1B1D22',
               borderRadius: 999,
               borderWidth: 4,
@@ -348,30 +398,40 @@ function RangeControl({
 
 function CheckboxRow({
   active,
+  disabled = false,
   label,
   onPress,
 }: {
   active: boolean;
+  disabled?: boolean;
   label: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       className="flex-row items-center gap-3 rounded-[18px] border px-4 py-3"
+      disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: active ? '#3B2A1C' : '#1B1D22',
-        borderColor: active ? 'rgba(255, 154, 62, 0.5)' : 'rgba(152, 162, 179, 0.14)',
+        backgroundColor: disabled ? '#17191E' : active ? '#3B2A1C' : '#2C2C2C',
+        borderColor: disabled
+          ? 'rgba(102, 112, 133, 0.16)'
+          : active
+            ? 'rgba(255, 154, 62, 0.5)'
+            : 'rgba(255, 255, 255, 0.1)',
+        opacity: disabled ? 0.6 : 1,
       }}>
       <View
         className="h-6 w-6 items-center justify-center rounded-full border"
         style={{
-          backgroundColor: active ? '#FF9A3E' : 'transparent',
-          borderColor: active ? '#FF9A3E' : 'rgba(152, 162, 179, 0.38)',
+          backgroundColor: disabled ? '#344054' : active ? '#FF9A3E' : 'transparent',
+          borderColor: disabled ? '#475467' : active ? '#FF9A3E' : 'rgba(152, 162, 179, 0.38)',
         }}>
-        {active ? <Ionicons color="#11131A" name="checkmark" size={14} /> : null}
+        {active ? <Ionicons color={disabled ? '#D0D5DD' : '#11131A'} name="checkmark" size={14} /> : null}
       </View>
-      <AppText className="flex-1 text-[14px]" style={{ color: active ? '#FFB05B' : '#D0D5DD' }}>
+      <AppText
+        className="flex-1 text-[14px]"
+        style={{ color: disabled ? '#667085' : active ? '#FFB05B' : '#D0D5DD' }}>
         {label}
       </AppText>
     </Pressable>
@@ -379,19 +439,22 @@ function CheckboxRow({
 }
 
 function SearchInput({
+  disabled = false,
   onChangeText,
   value,
 }: {
+  disabled?: boolean;
   onChangeText: (value: string) => void;
   value: string;
 }) {
   return (
     <View
       className="flex-row items-center gap-2 rounded-[16px] border px-4"
-      style={{ backgroundColor: '#15171C', borderColor: 'rgba(152, 162, 179, 0.14)', minHeight: 46 }}>
+      style={{ backgroundColor: '#2C2C2C', borderColor: 'rgba(255, 255, 255, 0.1)', minHeight: 46 }}>
       <Ionicons color="#667085" name="search-outline" size={16} />
       <TextInput
         className="flex-1 font-body text-[14px] text-text"
+        editable={!disabled}
         onChangeText={onChangeText}
         placeholder="Search"
         placeholderTextColor="#667085"
@@ -422,13 +485,13 @@ export function DiscoveryFilterSheet({
   currentMode,
   errorMessage,
   goalOptions,
+  hasConnectXPro = false,
   initialAppliedMode,
   initialFilters,
   isApplying = false,
   onApply,
   onClose,
   onModeChange,
-  onReset,
   sections,
   visible,
 }: DiscoveryFilterSheetProps) {
@@ -453,8 +516,8 @@ export function DiscoveryFilterSheet({
         ...current,
         [currentMode]:
           currentMode === initialAppliedMode
-            ? buildInitialDraft(sections, initialFilters)
-            : buildInitialDraft(sections, {}),
+            ? buildInitialDraft(sections, initialFilters, hasConnectXPro)
+            : buildInitialDraft(sections, {}, hasConnectXPro),
       };
     });
 
@@ -484,32 +547,33 @@ export function DiscoveryFilterSheet({
         [currentMode]: nextExpanded,
       };
     });
-  }, [currentMode, initialAppliedMode, initialFilters, sections, visible]);
+  }, [currentMode, hasConnectXPro, initialAppliedMode, initialFilters, sections, visible]);
 
   const currentDraft = React.useMemo(
-    () => draftByMode[currentMode] ?? buildInitialDraft(sections, {}),
-    [currentMode, draftByMode, sections]
+    () => draftByMode[currentMode] ?? buildInitialDraft(sections, {}, hasConnectXPro),
+    [currentMode, draftByMode, hasConnectXPro, sections]
   );
   const currentExpanded = React.useMemo(
     () => expandedByMode[currentMode] ?? {},
     [currentMode, expandedByMode]
   );
-
-  const basicSections = sections.filter(
-    (section) => section.id !== 'goal' && (section.type !== 'group' || section.id === 'locationAvailability')
+  const sectionById = React.useMemo(
+    () => new Map(sections.map((section) => [section.id, section])),
+    [sections]
   );
-  const premiumSections = sections.filter(
-    (section) => section.id !== 'goal' && section.type === 'group' && section.id !== 'locationAvailability'
-  );
+  const basicSections = sections.filter((section) => section.id !== 'goal' && !isPremiumDiscoverySection(section));
+  const advancedSections = sections.filter((section) => section.id !== 'goal' && isPremiumDiscoverySection(section));
 
   const updateDraft = React.useCallback(
     (updater: (current: DiscoveryAppliedFilters) => DiscoveryAppliedFilters) => {
       setDraftByMode((current) => ({
         ...current,
-        [currentMode]: updater(cloneDraftFilters(current[currentMode] ?? buildInitialDraft(sections, {}))),
+        [currentMode]: updater(
+          cloneDraftFilters(current[currentMode] ?? buildInitialDraft(sections, {}, hasConnectXPro))
+        ),
       }));
     },
-    [currentMode, sections]
+    [currentMode, hasConnectXPro, sections]
   );
 
   const handleToggleSection = React.useCallback((sectionId: string) => {
@@ -547,6 +611,10 @@ export function DiscoveryFilterSheet({
 
   const handleFieldValueChange = React.useCallback(
     (sectionId: string, fieldId: string, value: unknown) => {
+      if (isDisabledDiscoveryFilterSection(sectionById.get(sectionId), hasConnectXPro)) {
+        return;
+      }
+
       updateDraft((current) => {
         const currentSectionValue = isRecordValue(current[sectionId]) ? current[sectionId] : {};
 
@@ -559,11 +627,15 @@ export function DiscoveryFilterSheet({
         };
       });
     },
-    [updateDraft]
+    [hasConnectXPro, sectionById, updateDraft]
   );
 
   const handleToggleFieldOption = React.useCallback(
     (sectionId: string, field: DiscoveryFilterField, optionId: string) => {
+      if (isDisabledDiscoveryFilterSection(sectionById.get(sectionId), hasConnectXPro)) {
+        return;
+      }
+
       updateDraft((current) => {
         const currentSectionValue = isRecordValue(current[sectionId]) ? current[sectionId] : {};
         const existingValue = currentSectionValue[field.id];
@@ -592,7 +664,7 @@ export function DiscoveryFilterSheet({
         };
       });
     },
-    [updateDraft]
+    [hasConnectXPro, sectionById, updateDraft]
   );
 
   const handleGoalPress = React.useCallback((goalId: string) => {
@@ -605,15 +677,9 @@ export function DiscoveryFilterSheet({
     onModeChange(nextMode);
   }, [currentMode, onModeChange]);
 
-  const handleResetPress = React.useCallback(() => {
-    setDraftByMode({});
-    setExpandedByMode({});
-    setSearchTerms({});
-    onReset();
-  }, [onReset]);
-
   const renderField = React.useCallback(
     (sectionId: string, field: DiscoveryFilterField) => {
+      const disabled = isDisabledDiscoveryFilterSection(sectionById.get(sectionId), hasConnectXPro);
       const sectionValue = isRecordValue(currentDraft[sectionId]) ? currentDraft[sectionId] : {};
       const fieldValue = sectionValue[field.id] ?? getDefaultFieldValue(field);
       const searchKey = `${currentMode}:${sectionId}:${field.id}`;
@@ -624,9 +690,10 @@ export function DiscoveryFilterSheet({
           <View
             key={field.id}
             className="flex-row items-center justify-between rounded-[18px] border px-4 py-3"
-            style={{ backgroundColor: '#1B1D22', borderColor: 'rgba(152, 162, 179, 0.14)' }}>
+            style={{ backgroundColor: '#2C2C2C', borderColor: 'rgba(255, 255, 255, 0.1)' }}>
             <AppText className="flex-1 text-[14px]">{field.title}</AppText>
             <Switch
+              disabled={disabled}
               onValueChange={(value) => handleFieldValueChange(sectionId, field.id, value)}
               thumbColor="#FFFFFF"
               trackColor={{ false: '#344054', true: '#FF9A3E' }}
@@ -639,6 +706,7 @@ export function DiscoveryFilterSheet({
       if (field.ui.component === 'slider') {
         return (
           <RangeControl
+            disabled={disabled}
             key={field.id}
             field={field}
             onChange={(value) => handleFieldValueChange(sectionId, field.id, value)}
@@ -656,6 +724,7 @@ export function DiscoveryFilterSheet({
           </AppText>
           {field.ui.searchable ? (
             <SearchInput
+              disabled={disabled}
               onChangeText={(value) =>
                 setSearchTerms((current) => ({
                   ...current,
@@ -676,6 +745,7 @@ export function DiscoveryFilterSheet({
                   <OptionChip
                     key={option.id}
                     active={active}
+                    disabled={disabled}
                     label={option.label}
                     onPress={() => handleToggleFieldOption(sectionId, field, option.id)}
                   />
@@ -693,6 +763,7 @@ export function DiscoveryFilterSheet({
                   <CheckboxRow
                     key={option.id}
                     active={active}
+                    disabled={disabled}
                     label={option.label}
                     onPress={() => handleToggleFieldOption(sectionId, field, option.id)}
                   />
@@ -703,11 +774,12 @@ export function DiscoveryFilterSheet({
         </View>
       );
     },
-    [currentDraft, currentMode, handleFieldValueChange, handleToggleFieldOption, searchTerms]
+    [currentDraft, currentMode, handleFieldValueChange, handleToggleFieldOption, hasConnectXPro, searchTerms, sectionById]
   );
 
   const renderSectionContent = React.useCallback(
     (section: DiscoveryFilterSection) => {
+      const disabled = isDisabledDiscoveryFilterSection(section, hasConnectXPro);
       const sectionValue = currentDraft[section.id];
       const searchKey = `${currentMode}:${section.id}`;
       const searchTerm = searchTerms[searchKey] ?? '';
@@ -726,6 +798,7 @@ export function DiscoveryFilterSheet({
         <View className="gap-3 pt-3">
           {section.ui.searchable ? (
             <SearchInput
+              disabled={disabled}
               onChangeText={(value) =>
                 setSearchTerms((current) => ({
                   ...current,
@@ -745,6 +818,7 @@ export function DiscoveryFilterSheet({
                 <OptionChip
                   key={option.id}
                   active={active}
+                  disabled={disabled}
                   label={option.label}
                   onPress={() => handleToggleSectionOption(section, option.id)}
                 />
@@ -754,12 +828,13 @@ export function DiscoveryFilterSheet({
         </View>
       );
     },
-    [currentDraft, currentMode, handleToggleSectionOption, renderField, searchTerms]
+    [currentDraft, currentMode, handleToggleSectionOption, hasConnectXPro, renderField, searchTerms]
   );
 
   const renderAccordionSection = React.useCallback(
     (section: DiscoveryFilterSection) => {
       const expanded = currentExpanded[section.id] ?? false;
+      const disabled = isDisabledDiscoveryFilterSection(section, hasConnectXPro);
 
       return (
         <View
@@ -768,18 +843,27 @@ export function DiscoveryFilterSheet({
           style={{ borderBottomColor: 'rgba(152, 162, 179, 0.12)' }}>
           <Pressable className="flex-row items-center justify-between py-3" onPress={() => handleToggleSection(section.id)}>
             <View className="flex-row items-center gap-3">
-              <Ionicons color="#FF9A3E" name={sectionIcon(section.id)} size={20} />
+              <Ionicons color={disabled ? '#667085' : '#FF9A3E'} name={sectionIcon(section.id)} size={20} />
               <AppText className="text-[17px]" variant="subtitle">
                 {section.title}
               </AppText>
             </View>
             <Ionicons color="#98A2B3" name={expanded ? 'chevron-up' : 'chevron-down'} size={18} />
           </Pressable>
-          {expanded ? renderSectionContent(section) : null}
+          {expanded ? (
+            <>
+              {disabled ? (
+                <AppText className="pb-1 text-[12px]" tone="muted">
+                  ConnectX Pro is required to use this advanced filter section.
+                </AppText>
+              ) : null}
+              {renderSectionContent(section)}
+            </>
+          ) : null}
         </View>
       );
     },
-    [currentExpanded, handleToggleSection, renderSectionContent]
+    [currentExpanded, handleToggleSection, hasConnectXPro, renderSectionContent]
   );
 
   return (
@@ -792,18 +876,18 @@ export function DiscoveryFilterSheet({
       <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(10, 10, 14, 0.62)' }}>
         <Pressable className="flex-1" onPress={onClose} />
         <View
-          className="rounded-t-[30px] border border-border bg-surface px-4 pt-4"
+          className="rounded-t-[30px] border border-white/10 bg-[#2C2C2C] px-4 pt-8"
           style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}>
           <View className="mb-4 flex-row items-start justify-between">
             <View className="flex-1 gap-1">
               <View className="flex-row items-center gap-3">
                 <Ionicons color="#FF9A3E" name="sparkles-outline" size={20} />
                 <AppText className="text-[18px]" variant="title">
-                  Premium Filters
+                  Candidate Filters
                 </AppText>
               </View>
               <AppText tone="muted">
-                Advanced match intelligence for better startup connections
+                Tune the discovery deck and generate candidates from the filters you can use today
               </AppText>
             </View>
             <Pressable
@@ -814,7 +898,7 @@ export function DiscoveryFilterSheet({
           </View>
 
           {errorMessage ? (
-            <AppCard tone="signal" className="mb-4 gap-1.5 rounded-[18px] p-3">
+            <AppCard tone="signal" className="mb-4 gap-1.5 rounded-[18px] border-white/10 bg-[#2C2C2C] p-3">
               <AppText variant="subtitle">Filters unavailable</AppText>
               <AppText tone="muted">{errorMessage}</AppText>
             </AppCard>
@@ -844,32 +928,34 @@ export function DiscoveryFilterSheet({
               {basicSections.map((section) => renderAccordionSection(section))}
             </View>
 
-            {premiumSections.length > 0 ? (
+            {advancedSections.length > 0 ? (
               <View className="gap-3">
                 <AppText className="text-[12px] tracking-[1.8px]" tone="signal" variant="label">
-                  PREMIUM INTELLIGENCE
+                  ADVANCED FILTERS
                 </AppText>
                 <View className="gap-1">
-                  {premiumSections.map((section) => renderAccordionSection(section))}
+                  {advancedSections.map((section) => renderAccordionSection(section))}
                 </View>
               </View>
             ) : null}
           </ScrollView>
 
-          <View className="mt-5 flex-row gap-3">
-            <AppButton
-              className="flex-1"
+          <View className="mt-5">
+            <Pressable
               disabled={isApplying}
-              label="Reset"
-              onPress={handleResetPress}
-              variant="secondary"
-            />
-            <AppButton
-              className="flex-1"
-              disabled={isApplying}
-              label={isApplying ? 'Applying...' : 'Apply Filters'}
-              onPress={() => onApply(currentMode, currentDraft)}
-            />
+              onPress={() => onApply(currentMode, stripDisabledDiscoveryFilters(currentDraft, sections, hasConnectXPro))}
+              className="h-14 flex-row items-center justify-center gap-3 rounded-[18px]"
+              style={{
+                backgroundColor: '#FF9A3E',
+                borderCurve: 'continuous',
+                opacity: isApplying ? 0.5 : 1,
+              }}
+              android_ripple={{ color: 'rgba(0,0,0,0.12)' }}>
+              <AppText variant="subtitle" className="text-[16px] text-[#1A1208]">
+                <Ionicons color="" name="flash-outline" size={18} />
+                {isApplying ? 'Generating...' : 'Generate Candidate'}
+              </AppText>
+            </Pressable>
           </View>
         </View>
       </View>

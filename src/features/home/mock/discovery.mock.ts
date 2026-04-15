@@ -1,11 +1,10 @@
 import type {
+  DiscoveryCard,
   DiscoveryCardsResponse,
-  DiscoveryFilterOptionsResponse,
-  DiscoveryGoalId,
   DiscoveryMode,
 } from '../types/discovery.types';
 
-type MockDiscoveryCardBlueprint = {
+type MockDiscoveryProfileCardBlueprint = {
   id: string;
   profileId: string;
   photoUrl: string;
@@ -47,7 +46,31 @@ type MockDiscoveryCardBlueprint = {
   languages?: string[];
 };
 
-const cardBlueprints: MockDiscoveryCardBlueprint[] = [
+type MockDiscoveryStartupCardBlueprint = {
+  id: string;
+  startupId: string;
+  name: string;
+  logoUrl?: string | null;
+  badgeLabel: string;
+  founderName: string;
+  founderTitle: string;
+  score: number;
+  matchLabel: string;
+  industryPrimary: string;
+  industrySecondary?: string;
+  memberCount: number;
+  summary: string;
+  openRoles: string[];
+  lookingFor: string[];
+  journeyCurrentStage: string;
+  journeyStages: {
+    id: string;
+    label: string;
+    state: 'completed' | 'current' | 'upcoming';
+  }[];
+};
+
+const profileCardBlueprints: MockDiscoveryProfileCardBlueprint[] = [
   {
     id: 'card_001',
     profileId: 'usr_ardi_001',
@@ -412,629 +435,217 @@ const cardBlueprints: MockDiscoveryCardBlueprint[] = [
   },
 ];
 
-export const mockDiscoveryCardsResponse: DiscoveryCardsResponse = {
-  success: true,
-  message: 'Discovery cards fetched successfully',
-  data: {
-    items: cardBlueprints.map((card) => ({
-      id: card.id,
-      profileId: card.profileId,
-      photoUrl: card.photoUrl,
-      name: card.name,
-      age: card.age,
-      headline: card.headline,
-      location: {
-        city: card.city,
-        country: card.country,
-        display: `${card.city}, ${card.country}`,
-        distanceKm: card.distanceKm,
-      },
-      match: {
-        score: card.score,
-        label: card.matchLabel,
-      },
-      badges: [card.badge],
-      bio: card.bio,
-      startupIdea: card.startupIdea,
-      interests: [...card.interests],
-      skills: [...card.skills],
-      experience: card.experience ? [...card.experience] : undefined,
-      education: card.education ? [...card.education] : undefined,
-      languages: card.languages ? [...card.languages] : undefined,
+const startupCardBlueprints: MockDiscoveryStartupCardBlueprint[] = [
+  {
+    id: 'startup_card_payflow_ai',
+    startupId: 'startup_payflow_ai',
+    name: 'PayFlow AI',
+    badgeLabel: 'MVP',
+    founderName: 'Sarah Chen',
+    founderTitle: 'Founder',
+    score: 94,
+    matchLabel: 'Perfect Match',
+    industryPrimary: 'Fintech',
+    industrySecondary: 'AI',
+    memberCount: 2,
+    summary: 'Building an AI-powered payment infrastructure for Southeast Asian SMEs.',
+    openRoles: ['Technical Co-Founder', 'Backend Engineer'],
+    lookingFor: ['Co-Founder', 'Team members'],
+    journeyCurrentStage: 'mvp',
+    journeyStages: [
+      { id: 'idea', label: 'Idea', state: 'completed' },
+      { id: 'mvp', label: 'MVP', state: 'current' },
+      { id: 'pre_seed', label: 'Pre-Seed', state: 'upcoming' },
+      { id: 'seed', label: 'Seed', state: 'upcoming' },
+    ],
+  },
+  {
+    id: 'startup_card_solidarity_health',
+    startupId: 'startup_solidarity_health',
+    name: 'Solidarity Health',
+    badgeLabel: 'Pre-Seed',
+    founderName: 'Nadia Rahman',
+    founderTitle: 'Founder',
+    score: 91,
+    matchLabel: 'Strong Match',
+    industryPrimary: 'Healthtech',
+    industrySecondary: 'Ops',
+    memberCount: 4,
+    summary: 'Creating AI-assisted clinic workflows for underserved primary care operators.',
+    openRoles: ['Founding Product Designer', 'Clinical Ops Lead'],
+    lookingFor: ['Design partner', 'Operator'],
+    journeyCurrentStage: 'pre_seed',
+    journeyStages: [
+      { id: 'idea', label: 'Idea', state: 'completed' },
+      { id: 'mvp', label: 'MVP', state: 'completed' },
+      { id: 'pre_seed', label: 'Pre-Seed', state: 'current' },
+      { id: 'seed', label: 'Seed', state: 'upcoming' },
+    ],
+  },
+  {
+    id: 'startup_card_cargo_os',
+    startupId: 'startup_cargo_os',
+    name: 'Cargo OS',
+    badgeLabel: 'Seed',
+    founderName: 'Miguel Santos',
+    founderTitle: 'Founder',
+    score: 89,
+    matchLabel: 'High Potential',
+    industryPrimary: 'Logistics',
+    industrySecondary: 'SaaS',
+    memberCount: 7,
+    summary: 'Building workflow software for fragmented freight operators across APAC.',
+    openRoles: ['Founding Engineer', 'Growth Lead'],
+    lookingFor: ['Early operator', 'Full-time builder'],
+    journeyCurrentStage: 'seed',
+    journeyStages: [
+      { id: 'idea', label: 'Idea', state: 'completed' },
+      { id: 'mvp', label: 'MVP', state: 'completed' },
+      { id: 'pre_seed', label: 'Pre-Seed', state: 'completed' },
+      { id: 'seed', label: 'Seed', state: 'current' },
+    ],
+  },
+  {
+    id: 'startup_card_aurora_stack',
+    startupId: 'startup_aurora_stack',
+    name: 'Aurora Stack',
+    badgeLabel: 'MVP',
+    founderName: 'Jules Bennett',
+    founderTitle: 'Founder',
+    score: 93,
+    matchLabel: 'Perfect Match',
+    industryPrimary: 'Climate',
+    industrySecondary: 'DevTools',
+    memberCount: 3,
+    summary: 'Shipping internal data tools that help climate startups operate with smaller teams.',
+    openRoles: ['Technical Co-Founder', 'Platform Engineer'],
+    lookingFor: ['Co-Founder', 'Infra builder'],
+    journeyCurrentStage: 'mvp',
+    journeyStages: [
+      { id: 'idea', label: 'Idea', state: 'completed' },
+      { id: 'mvp', label: 'MVP', state: 'current' },
+      { id: 'pre_seed', label: 'Pre-Seed', state: 'upcoming' },
+      { id: 'seed', label: 'Seed', state: 'upcoming' },
+    ],
+  },
+  {
+    id: 'startup_card_people_os',
+    startupId: 'startup_people_os',
+    name: 'People OS',
+    badgeLabel: 'MVP',
+    founderName: 'Chloe Bennett',
+    founderTitle: 'Founder',
+    score: 90,
+    matchLabel: 'Strong Fit',
+    industryPrimary: 'HR Tech',
+    industrySecondary: 'AI',
+    memberCount: 5,
+    summary: 'Designing an operating system for distributed startup teams and people leaders.',
+    openRoles: ['Founding Recruiter', 'People Ops Partner'],
+    lookingFor: ['Team members', 'People operator'],
+    journeyCurrentStage: 'mvp',
+    journeyStages: [
+      { id: 'idea', label: 'Idea', state: 'completed' },
+      { id: 'mvp', label: 'MVP', state: 'current' },
+      { id: 'pre_seed', label: 'Pre-Seed', state: 'upcoming' },
+      { id: 'seed', label: 'Seed', state: 'upcoming' },
+    ],
+  },
+];
+
+function createProfileCards(): DiscoveryCard[] {
+  return profileCardBlueprints.map((card) => ({
+    entityType: 'profile',
+    id: card.id,
+    profileId: card.profileId,
+    photoUrl: card.photoUrl,
+    name: card.name,
+    age: card.age,
+    headline: card.headline,
+    location: {
+      city: card.city,
+      country: card.country,
+      display: `${card.city}, ${card.country}`,
+      distanceKm: card.distanceKm,
+    },
+    match: {
+      score: card.score,
+      label: card.matchLabel,
+    },
+    badges: [card.badge],
+    bio: card.bio,
+    startupIdea: card.startupIdea,
+    interests: [...card.interests],
+    skills: [...card.skills],
+    experience: card.experience ? [...card.experience] : undefined,
+    education: card.education ? [...card.education] : undefined,
+    languages: card.languages ? [...card.languages] : undefined,
+  }));
+}
+
+function createStartupCards(): DiscoveryCard[] {
+  return startupCardBlueprints.map((card) => ({
+    entityType: 'startup',
+    id: card.id,
+    startupId: card.startupId,
+    name: card.name,
+    logoUrl: card.logoUrl ?? null,
+    badge: {
+      label: card.badgeLabel,
+    },
+    founder: {
+      name: card.founderName,
+      title: card.founderTitle,
+    },
+    match: {
+      score: card.score,
+      label: card.matchLabel,
+    },
+    industry: {
+      primary: card.industryPrimary,
+      secondary: card.industrySecondary,
+      display: [card.industryPrimary, card.industrySecondary].filter(Boolean).join(' / '),
+    },
+    team: {
+      memberCount: card.memberCount,
+      display: `${card.memberCount} members`,
+    },
+    summary: card.summary,
+    openRoles: card.openRoles.map((title) => ({
+      id: `${card.startupId}_${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+      title,
     })),
-    nextCursor: null,
-    hasMore: false,
-  },
-};
-
-function createGoalSection(defaultGoal: DiscoveryGoalId) {
-  return {
-    id: 'goal',
-    title: 'Goal',
-    type: 'single_select' as const,
-    ui: {
-      component: 'radio_cards',
-      collapsible: false,
+    lookingFor: [...card.lookingFor],
+    teamStage: {
+      teamSize: card.memberCount,
+      stage: card.badgeLabel,
+      industry: [card.industryPrimary, card.industrySecondary].filter(Boolean).join(' / '),
+      hiringCount: card.openRoles.length,
     },
-    options: [
-      {
-        id: 'goal_finding_cofounder' as const,
-        label: 'Finding Co-Founder',
-        description: 'Search for your ideal co-founder',
-      },
-      {
-        id: 'goal_building_team' as const,
-        label: 'Building Team',
-        description: 'Hire early team members',
-      },
-      {
-        id: 'goal_explore_startups' as const,
-        label: 'Explore Startups',
-        description: 'Find a startup to join',
-      },
-      {
-        id: 'goal_joining_startups' as const,
-        label: 'Joining Startups',
-        description: 'Co-found a venture',
-      },
-    ],
-    defaultValue: defaultGoal,
-  };
+    journey: {
+      currentStage: card.journeyCurrentStage,
+      stages: [...card.journeyStages],
+    },
+  }));
 }
 
-function createLocationAvailabilitySection() {
-  return {
-    id: 'locationAvailability',
-    title: 'Location & Availability',
-    type: 'group' as const,
-    ui: {
-      component: 'group',
-      collapsible: false,
-    },
-    fields: [
-      {
-        id: 'workArrangementIds',
-        title: 'Work Arrangement',
-        type: 'multi_select' as const,
-        ui: {
-          component: 'chips',
-        },
-        options: [
-          { id: 'wa_onsite', label: 'Onsite' },
-          { id: 'wa_hybrid', label: 'Hybrid' },
-          { id: 'wa_remote', label: 'Remote' },
-        ],
-      },
-      {
-        id: 'remoteReady',
-        title: 'Available for remote work',
-        type: 'boolean' as const,
-        ui: {
-          component: 'switch',
-        },
-        defaultValue: true,
-      },
-      {
-        id: 'distanceKm',
-        title: 'Distance',
-        type: 'range' as const,
-        ui: {
-          component: 'slider',
-          suffix: 'km',
-        },
-        min: 1,
-        max: 100,
-        step: 1,
-        defaultValue: 50,
-      },
-    ],
-  };
-}
-
-const commonIndustrySection = {
-  id: 'industryIds',
-  title: 'Industry',
-  type: 'multi_select' as const,
-  ui: {
-    component: 'chips',
-    searchable: true,
-    collapsible: false,
-  },
-  options: [
-    { id: 'ind_ai', label: 'AI' },
-    { id: 'ind_fintech', label: 'Fintech' },
-    { id: 'ind_healthtech', label: 'Healthtech' },
-    { id: 'ind_edtech', label: 'EdTech' },
-    { id: 'ind_web3', label: 'Web3' },
-    { id: 'ind_saas', label: 'SaaS' },
-  ],
-};
-
-const commonStageSection = {
-  id: 'startupStageIds',
-  title: 'Startup Stage',
-  type: 'multi_select' as const,
-  ui: {
-    component: 'chips',
-    collapsible: false,
-  },
-  options: [
-    { id: 'stage_idea', label: 'Idea' },
-    { id: 'stage_mvp', label: 'MVP' },
-    { id: 'stage_pre_seed', label: 'Pre-seed' },
-    { id: 'stage_seed', label: 'Seed' },
-  ],
-};
-
-function createFilterOptionsResponse(
-  mode: DiscoveryMode,
-  sections: DiscoveryFilterOptionsResponse['data']['sections']
-): DiscoveryFilterOptionsResponse {
+function createCardsResponse(items: DiscoveryCard[]): DiscoveryCardsResponse {
   return {
     success: true,
-    message: 'Discovery filter options fetched successfully',
+    message: 'Discovery cards fetched successfully',
     data: {
-      context: {
-        mode,
-        isPremium: true,
-      },
-      sections,
+      items,
+      nextCursor: null,
+      hasMore: false,
     },
   };
 }
 
-export const mockDiscoveryFilterOptionsByMode: Record<DiscoveryMode, DiscoveryFilterOptionsResponse> = {
-  finding_cofounder: createFilterOptionsResponse('finding_cofounder', [
-    createGoalSection('goal_finding_cofounder'),
-    {
-      id: 'skillStrengthIds',
-      title: 'Skill Strength',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: false },
-      options: [
-        { id: 'ss_technical', label: 'Technical' },
-        { id: 'ss_product', label: 'Product' },
-        { id: 'ss_business', label: 'Business' },
-        { id: 'ss_sales', label: 'Sales' },
-        { id: 'ss_marketing', label: 'Marketing' },
-        { id: 'ss_design', label: 'Design' },
-        { id: 'ss_operations', label: 'Operations' },
-        { id: 'ss_finance', label: 'Finance' },
-      ],
-    },
-    commonIndustrySection,
-    createLocationAvailabilitySection(),
-    {
-      id: 'commitmentIds',
-      title: 'Commitment',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: true, defaultCollapsed: false },
-      options: [
-        { id: 'commitment_full_time', label: 'Full-time' },
-        { id: 'commitment_part_time', label: 'Part-time' },
-        { id: 'commitment_side_project', label: 'Side Project' },
-      ],
-    },
-    {
-      id: 'aiMatchPrecision',
-      title: 'AI Match Precision',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'minimumMatchScore',
-          title: 'Minimum Match Score',
-          type: 'range',
-          ui: { component: 'slider', suffix: '%' },
-          min: 50,
-          max: 99,
-          step: 1,
-          defaultValue: 81,
-        },
-        {
-          id: 'priorityPreferenceIds',
-          title: 'AI Priorities',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'ai_same_stage', label: 'Same Startup Stage' },
-            { id: 'ai_similar_commitment', label: 'Similar Commitment Level' },
-            { id: 'ai_leadership_compatibility', label: 'Leadership Compatibility' },
-            { id: 'ai_functional_balance', label: 'Functional Balance' },
-            { id: 'ai_geographic_fit', label: 'Geographic Fit' },
-            { id: 'ai_language_compatibility', label: 'Language Compatibility' },
-          ],
-        },
-        {
-          id: 'showAiExplainWhyMatch',
-          title: 'Show AI Explain Why Match',
-          type: 'boolean',
-          ui: { component: 'switch' },
-          defaultValue: false,
-        },
-      ],
-    },
-    {
-      id: 'founderBuilderQuality',
-      title: 'Founder & Builder Quality',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'startupExperienceIds',
-          title: 'Startup Experience',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'se_first_time_founder', label: 'First-time Founder' },
-            { id: 'se_built_1_startup', label: 'Built 1 Startup' },
-            { id: 'se_serial_founder', label: 'Serial Founder' },
-            { id: 'se_exit_experience', label: 'Startup Exit Experience' },
-          ],
-        },
-        {
-          id: 'leadershipBackgroundIds',
-          title: 'Leadership Background',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'lb_led_team', label: 'Led Startup Team' },
-            { id: 'lb_built_from_zero', label: 'Built Product from Zero' },
-            { id: 'lb_owned_revenue', label: 'Owned Revenue Target' },
-            { id: 'lb_raised_capital', label: 'Raised Capital' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'globalCompatibility',
-      title: 'Global Compatibility',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: true },
-      fields: [
-        {
-          id: 'languageIds',
-          title: 'Languages',
-          type: 'multi_select',
-          ui: { component: 'chips', searchable: true },
-          options: [
-            { id: 'lang_en', label: 'English' },
-            { id: 'lang_id', label: 'Bahasa Indonesia' },
-            { id: 'lang_zh', label: 'Mandarin Chinese' },
-            { id: 'lang_es', label: 'Spanish' },
-          ],
-        },
-        {
-          id: 'educationIds',
-          title: 'Education',
-          type: 'multi_select',
-          ui: { component: 'chips' },
-          options: [
-            { id: 'edu_bachelor', label: 'Bachelor' },
-            { id: 'edu_master', label: 'Master' },
-            { id: 'edu_mba', label: 'MBA' },
-          ],
-        },
-      ],
-    },
-  ]),
-  building_team: createFilterOptionsResponse('building_team', [
-    createGoalSection('goal_building_team'),
-    commonIndustrySection,
-    createLocationAvailabilitySection(),
-    {
-      id: 'roleNeededIds',
-      title: 'Role Needed',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: false },
-      options: [
-        { id: 'role_engineer', label: 'Engineer' },
-        { id: 'role_ai_ml', label: 'AI / ML' },
-        { id: 'role_designer', label: 'Designer' },
-        { id: 'role_marketing', label: 'Marketing' },
-        { id: 'role_operations', label: 'Operations' },
-      ],
-    },
-    {
-      id: 'skillIds',
-      title: 'Core Skill Stack',
-      type: 'multi_select',
-      ui: { component: 'chips', searchable: true, collapsible: false },
-      options: [
-        { id: 'skill_react', label: 'React' },
-        { id: 'skill_python', label: 'Python' },
-        { id: 'skill_growth', label: 'Growth' },
-        { id: 'skill_sales', label: 'Sales' },
-        { id: 'skill_product', label: 'Product' },
-      ],
-    },
-    {
-      id: 'commitmentIds',
-      title: 'Commitment',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: false },
-      options: [
-        { id: 'commitment_full_time', label: 'Full-time' },
-        { id: 'commitment_part_time', label: 'Part-time' },
-      ],
-    },
-    {
-      id: 'aiTalentPrecision',
-      title: 'AI Talent Precision',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'minimumMatchScore',
-          title: 'Minimum Match Score',
-          type: 'range',
-          ui: { component: 'slider', suffix: '%' },
-          min: 50,
-          max: 99,
-          step: 1,
-          defaultValue: 81,
-        },
-        {
-          id: 'priorityPreferenceIds',
-          title: 'AI Priorities',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'ai_skill_depth', label: 'Skill Depth' },
-            { id: 'ai_startup_readiness', label: 'Startup Readiness' },
-            { id: 'ai_immediate_availability', label: 'Immediate Availability' },
-            { id: 'ai_leadership_potential', label: 'Leadership Potential' },
-            { id: 'ai_role_complementarity', label: 'Role Complementarity' },
-          ],
-        },
-        {
-          id: 'showAiExplainWhyMatch',
-          title: 'Show AI Explain Why Match',
-          type: 'boolean',
-          ui: { component: 'switch' },
-          defaultValue: false,
-        },
-      ],
-    },
-    {
-      id: 'executionQuality',
-      title: 'Execution Quality',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'trackRecordIds',
-          title: 'Track Record',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'eq_built_mvp', label: 'Built MVP' },
-            { id: 'eq_startup_experience', label: 'Startup Experience' },
-            { id: 'eq_product_shipped', label: 'Product Shipped' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'hiringReadiness',
-      title: 'Hiring Readiness',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: true },
-      fields: [
-        {
-          id: 'availabilityIds',
-          title: 'Availability',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'hr_remote_ready', label: 'Remote Ready' },
-            { id: 'hr_30_days', label: 'Ready in 30 Days' },
-            { id: 'hr_immediate', label: 'Immediate Start' },
-          ],
-        },
-      ],
-    },
-  ]),
-  explore_startups: createFilterOptionsResponse('explore_startups', [
-    createGoalSection('goal_explore_startups'),
-    commonStageSection,
-    commonIndustrySection,
-    createLocationAvailabilitySection(),
-    {
-      id: 'roleNeededIds',
-      title: 'Role Needed',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: false },
-      options: [
-        { id: 'role_engineer', label: 'Engineer' },
-        { id: 'role_marketing', label: 'Marketing' },
-        { id: 'role_operations', label: 'Operations' },
-        { id: 'role_product', label: 'Product' },
-      ],
-    },
-    {
-      id: 'startupQuality',
-      title: 'Startup Quality',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'founderBackgroundIds',
-          title: 'Founder Background',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'sq_repeat_founder', label: 'Repeat Founder' },
-            { id: 'sq_startup_exit', label: 'Startup Exit' },
-            { id: 'sq_vc_backed_founder', label: 'VC-backed Founder' },
-            { id: 'sq_strong_founder_background', label: 'Strong Founder Background' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'startupReadiness',
-      title: 'Startup Readiness',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'progressIds',
-          title: 'Progress',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'sr_mvp_ready', label: 'MVP Ready' },
-            { id: 'sr_product_live', label: 'Product Live' },
-            { id: 'sr_paying_users', label: 'Paying Users' },
-            { id: 'sr_existing_team', label: 'Existing Team' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'opportunityFit',
-      title: 'Opportunity Fit',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: true },
-      fields: [
-        {
-          id: 'conditionIds',
-          title: 'Conditions',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'of_equity_offered', label: 'Equity Offered' },
-            { id: 'of_remote_team', label: 'Remote Team' },
-            { id: 'of_fast_hiring', label: 'Fast Hiring' },
-            { id: 'of_early_core_role', label: 'Early Core Role' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'aiStartupFit',
-      title: 'AI Startup Fit',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'minimumFitScore',
-          title: 'Minimum Fit Score',
-          type: 'range',
-          ui: { component: 'slider', suffix: '%' },
-          min: 50,
-          max: 99,
-          step: 1,
-          defaultValue: 81,
-        },
-        {
-          id: 'showAiExplainWhyMatch',
-          title: 'Show AI Explain Why Match',
-          type: 'boolean',
-          ui: { component: 'switch' },
-          defaultValue: false,
-        },
-      ],
-    },
-  ]),
-  joining_startups: createFilterOptionsResponse('joining_startups', [
-    createGoalSection('goal_joining_startups'),
-    commonStageSection,
-    commonIndustrySection,
-    {
-      id: 'founderTypeIds',
-      title: 'Founder Type',
-      type: 'multi_select',
-      ui: { component: 'chips', collapsible: false },
-      options: [
-        { id: 'ft_technical_founder', label: 'Technical Founder' },
-        { id: 'ft_business_founder', label: 'Business Founder' },
-        { id: 'ft_product_founder', label: 'Product Founder' },
-        { id: 'ft_operator_founder', label: 'Operator Founder' },
-      ],
-    },
-    createLocationAvailabilitySection(),
-    {
-      id: 'founderQuality',
-      title: 'Founder Quality',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'backgroundIds',
-          title: 'Background',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'fq_startup_experience', label: 'Startup Experience' },
-            { id: 'fq_exit', label: 'Startup Exit' },
-            { id: 'fq_fundraising_exposure', label: 'Fundraising Exposure' },
-            { id: 'fq_accelerator_background', label: 'Accelerator Background' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'leadershipStrength',
-      title: 'Leadership Strength',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'leadershipIds',
-          title: 'Leadership Signals',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'ls_built_team', label: 'Built Team' },
-            { id: 'ls_led_product', label: 'Led Product' },
-            { id: 'ls_growth_ownership', label: 'Growth Ownership' },
-            { id: 'ls_operations_leadership', label: 'Operations Leadership' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'startupReadiness',
-      title: 'Startup Readiness',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'progressIds',
-          title: 'Progress',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'jsr_mvp', label: 'MVP Built' },
-            { id: 'jsr_traction', label: 'Early Traction' },
-            { id: 'jsr_paying_users', label: 'Paying Users' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'equityAndCommitment',
-      title: 'Equity & Commitment',
-      type: 'group',
-      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
-      fields: [
-        {
-          id: 'termIds',
-          title: 'Terms',
-          type: 'multi_select',
-          ui: { component: 'checkbox_list' },
-          options: [
-            { id: 'eac_cofounder_equity', label: 'Co-founder Equity' },
-            { id: 'eac_full_time_expected', label: 'Full-time Expected' },
-            { id: 'eac_pre_revenue_build', label: 'Pre-revenue Build' },
-          ],
-        },
-      ],
-    },
-  ]),
+export const mockDiscoveryCardsResponsesByMode: Record<DiscoveryMode, DiscoveryCardsResponse> = {
+  finding_cofounder: createCardsResponse(createProfileCards()),
+  building_team: createCardsResponse(createProfileCards()),
+  explore_startups: createCardsResponse(createStartupCards()),
+  joining_startups: createCardsResponse(createStartupCards()),
 };
 
-export const mockDiscoveryFilterOptionsResponse =
-  mockDiscoveryFilterOptionsByMode.finding_cofounder;
+export const mockDiscoveryCardsResponse = mockDiscoveryCardsResponsesByMode.joining_startups;

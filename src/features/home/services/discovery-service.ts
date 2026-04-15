@@ -1,11 +1,13 @@
 import { ApiError, apiFetch } from '@shared/services/api';
 
-import { mockDiscoveryCardsResponse, mockDiscoveryFilterOptionsByMode } from '../mock/discovery.mock';
+import {
+  mockDiscoveryCardsResponse,
+  mockDiscoveryCardsResponsesByMode,
+} from '../mock/discovery.mock';
 import type {
   DiscoveryCardFeedInput,
   DiscoveryCardsRequest,
   DiscoveryCardsResponse,
-  DiscoveryFilterOptionsResponse,
   DiscoveryMode,
   DiscoverySwipeHistoryEntry,
   RewindActionRequest,
@@ -18,6 +20,7 @@ import type {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
+const DEFAULT_MOCK_MODE: DiscoveryMode = 'joining_startups';
 
 function parseBooleanEnv(value: string | undefined) {
   if (!value) {
@@ -63,17 +66,26 @@ function getMockRewindMode(): MockRewindMode | null {
   return null;
 }
 
-export function getMockDiscoveryCardsResponse(limit = DEFAULT_LIMIT, cursor?: string) {
-  const items = mockDiscoveryCardsResponse.data.items;
+function resolveMockMode(request?: Omit<DiscoveryCardsRequest, 'pagination'>) {
+  return request?.context?.mode ?? DEFAULT_MOCK_MODE;
+}
+
+export function getMockDiscoveryCardsResponse(
+  limit = DEFAULT_LIMIT,
+  cursor?: string,
+  request?: Omit<DiscoveryCardsRequest, 'pagination'>
+) {
+  const response = mockDiscoveryCardsResponsesByMode[resolveMockMode(request)] ?? mockDiscoveryCardsResponse;
+  const items = response.data.items;
   const startIndex = cursor ? Number.parseInt(cursor, 10) || 0 : 0;
   const normalizedStartIndex = Math.max(0, startIndex);
   const endIndex = Math.min(items.length, normalizedStartIndex + normalizeLimit(limit));
   const nextCursor = endIndex < items.length ? String(endIndex) : null;
 
   return {
-    ...mockDiscoveryCardsResponse,
+    ...response,
     data: {
-      ...mockDiscoveryCardsResponse.data,
+      ...response.data,
       items: items.slice(normalizedStartIndex, endIndex),
       nextCursor,
       hasMore: nextCursor !== null,
@@ -85,14 +97,9 @@ export function isDiscoveryCardsMockEnabled() {
   return __DEV__;
 }
 
-export function isDiscoveryFilterOptionsMockEnabled() {
-  return __DEV__;
-}
-
 export const DISCOVERY_API = {
   CARDS: '/api/v1/discovery/cards',
-  FILTER_OPTIONS: '/api/v1/discovery/filter-options',
-  ACTION: (profileId: string) => `/api/v1/discovery/cards/${profileId}/action`,
+  ACTION: (targetId: string) => `/api/v1/discovery/cards/${targetId}/action`,
   REWIND: '/api/v1/discovery/swipes/rewind',
   SPOTLIGHT_ACTIVATE: '/api/v1/discovery/spotlight/activate',
 } as const;
@@ -133,7 +140,7 @@ function buildDiscoveryCardsPayload({
 
 export async function fetchDiscoveryCards(input: DiscoveryCardFeedInput = {}) {
   if (isDiscoveryCardsMockEnabled()) {
-    return getMockDiscoveryCardsResponse(input.limit, input.cursor);
+    return getMockDiscoveryCardsResponse(input.limit, input.cursor, input.request);
   }
 
   return apiFetch<DiscoveryCardsResponse>(DISCOVERY_API.CARDS, {
@@ -142,17 +149,7 @@ export async function fetchDiscoveryCards(input: DiscoveryCardFeedInput = {}) {
   });
 }
 
-export async function fetchDiscoveryFilterOptions(mode: DiscoveryMode) {
-  if (isDiscoveryFilterOptionsMockEnabled()) {
-    return mockDiscoveryFilterOptionsByMode[mode];
-  }
-
-  const params = new URLSearchParams({ mode });
-
-  return apiFetch<DiscoveryFilterOptionsResponse>(`${DISCOVERY_API.FILTER_OPTIONS}?${params.toString()}`);
-}
-
-export async function postSwipeAction(profileId: string, payload: SwipeActionRequest) {
+export async function postSwipeAction(targetId: string, payload: SwipeActionRequest) {
   if (__DEV__ && payload.action === 'super_like' && shouldMockSuperLikeRequiresBoost()) {
 
     throw new ApiError('No boosts remaining.', 409, {
@@ -161,7 +158,8 @@ export async function postSwipeAction(profileId: string, payload: SwipeActionReq
       error: {
         code: 'DISCOVERY_SUPER_LIKE_REQUIRES_BOOST',
         details: {
-          profileId,
+          id: targetId,
+          targetId,
           action: 'super_like',
           requiredConsumable: 'boost',
           remaining: 0,
@@ -170,7 +168,7 @@ export async function postSwipeAction(profileId: string, payload: SwipeActionReq
     });
   }
 
-  return apiFetch<SwipeActionResponse>(DISCOVERY_API.ACTION(profileId), {
+  return apiFetch<SwipeActionResponse>(DISCOVERY_API.ACTION(targetId), {
     body: payload as unknown as BodyInit,
     method: 'POST',
   });
@@ -207,7 +205,9 @@ export async function postRewindAction(
         error: {
           code: 'DISCOVERY_REWIND_NOT_AVAILABLE',
           details: {
-            profileId: historyEntry?.card.profileId ?? null,
+            id: historyEntry?.card.id ?? null,
+            profileId:
+              historyEntry?.card.entityType === 'profile' ? historyEntry.card.profileId : null,
             rewoundAction: historyEntry?.action ?? null,
             reason: 'EMPTY_HISTORY',
           },
@@ -219,7 +219,8 @@ export async function postRewindAction(
       success: true,
       message: 'Last swipe rewound.',
       data: {
-        profileId: historyEntry.card.profileId,
+        id: historyEntry.card.id,
+        profileId: historyEntry.card.entityType === 'profile' ? historyEntry.card.profileId : null,
         rewoundAction: historyEntry.action,
         card: historyEntry.card,
       },

@@ -6,9 +6,11 @@ import { DiscoveryDeck } from './discovery-deck';
 export function HomeScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: '' }} />
-      <View className="flex-1 bg-canvas px-4 pt-4 pb-24">
-        <DiscoveryDeck />
+      <Stack.Screen options={{ headerShown: false, title: '' }} />
+      <View className="flex-1 pb-2" style={{ backgroundColor: '#262626' }}>
+        <View className="flex-1">
+          <DiscoveryDeck />
+        </View>
       </View>
     </>
   );
