@@ -1,6 +1,6 @@
-import { Redirect, Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { View, KeyboardAvoidingView, Platform, TouchableOpacity, Keyboard, Pressable } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, TouchableOpacity, View } from 'react-native';
 
 import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -58,12 +58,12 @@ export function VerifyWhatsappScreen() {
     sendWhatsappOtp,
     signOut,
   } = useAuth();
-  
+
   const persistedWhatsappNumber = session?.user?.whatsapp_number ?? session?.pendingWhatsappNumber ?? '';
   const hasPersistedOtpState = Boolean(
     persistedWhatsappNumber && session?.whatsappOtpLastSentAt
   );
-  
+
   const [whatsappNumber, setWhatsappNumber] = React.useState(persistedWhatsappNumber);
   const [whatsappError, setWhatsappError] = React.useState<string | null>(null);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
@@ -78,8 +78,8 @@ export function VerifyWhatsappScreen() {
 
   React.useEffect(() => {
     if (hasPersistedOtpState && params.reset !== 'true') {
-        // Automatically route to otp screen if we already had a pending otp
-        router.replace('/verify-otp');
+      // Automatically route to otp screen if we already had a pending otp
+      router.replace('/verify-otp');
     }
   }, [hasPersistedOtpState, params.reset, router]);
 
@@ -131,65 +131,65 @@ export function VerifyWhatsappScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-canvas"
     >
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
-      <View className="flex-1 px-5 pt-16 pb-8">
-        
-        <View className="flex-row justify-end items-center h-12">
-          <TouchableOpacity onPress={() => signOut()} className="py-2">
-            <AppText tone="muted" className="font-medium text-[15px]">Log out</AppText>
-          </TouchableOpacity>
+        <View className="flex-1 px-5 pt-16 pb-8">
+
+          <View className="flex-row justify-end items-center h-12">
+            <TouchableOpacity onPress={() => signOut()} className="py-2">
+              <AppText tone="muted" className="font-medium text-[15px]">Log out</AppText>
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-1 pt-8">
+            <View className="gap-2 shrink-0">
+              <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
+                Enter WhatsApp Number
+              </AppText>
+              <AppText tone="muted" className="text-base">
+                We&apos;ll send a 6-digit code to verify your identity.
+              </AppText>
+            </View>
+
+            <View className="mt-8 shrink-0">
+              <AppInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                error={whatsappError ?? undefined}
+                keyboardType="phone-pad"
+                onChangeText={(value) => {
+                  setWhatsappNumber(normalizeWhatsappNumber(value));
+                  if (whatsappError) setWhatsappError(null);
+                }}
+                placeholder="+62 812 3456 7890"
+                value={whatsappNumber}
+                className="bg-transparent border-0 border-b border-border rounded-none px-0 text-2xl h-16 min-h-16"
+                placeholderTextColor="#64748B"
+              />
+            </View>
+
+            {statusMessage && statusTone === 'danger' && (
+              <AppText tone="danger" className="mt-4">{statusMessage}</AppText>
+            )}
+
+            <View className="flex-1 justify-end shrink-0 pt-8">
+              <AppButton
+                disabled={isSendingOtp || !whatsappNumber}
+                label={isSendingOtp ? 'Sending...' : 'Continue'}
+                onPress={handleSendOtp}
+                size="lg"
+                className="w-full bg-[#0066FF] rounded-[16px] border-none"
+              />
+              <AppText align="center" tone="muted" className="mt-4 text-[13px]">
+                By entering your number you agree to our Terms & Privacy Policy
+              </AppText>
+            </View>
+          </View>
         </View>
-
-        <View className="flex-1 pt-8">
-          <View className="gap-2 shrink-0">
-            <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
-              Enter WhatsApp Number
-            </AppText>
-            <AppText tone="muted" className="text-base">
-              We&apos;ll send a 6-digit code to verify your identity.
-            </AppText>
-          </View>
-
-          <View className="mt-8 shrink-0">
-            <AppInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              error={whatsappError ?? undefined}
-              keyboardType="phone-pad"
-              onChangeText={(value) => {
-                setWhatsappNumber(normalizeWhatsappNumber(value));
-                if (whatsappError) setWhatsappError(null);
-              }}
-              placeholder="+62 812 3456 7890"
-              value={whatsappNumber}
-              className="bg-transparent border-0 border-b border-border rounded-none px-0 text-2xl h-16 min-h-16"
-              placeholderTextColor="#64748B"
-            />
-          </View>
-
-          {statusMessage && statusTone === 'danger' && (
-            <AppText tone="danger" className="mt-4">{statusMessage}</AppText>
-          )}
-
-          <View className="flex-1 justify-end shrink-0 pt-8">
-            <AppButton
-              disabled={isSendingOtp || !whatsappNumber}
-              label={isSendingOtp ? 'Sending...' : 'Continue'}
-              onPress={handleSendOtp}
-              size="lg"
-              className="w-full bg-[#0066FF] rounded-[16px] border-none"
-            />
-            <AppText align="center" tone="muted" className="mt-4 text-[13px]">
-              By entering your number you agree to our Terms & Privacy Policy
-            </AppText>
-          </View>
-        </View>
-      </View>
       </Pressable>
     </KeyboardAvoidingView>
   );

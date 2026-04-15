@@ -197,7 +197,7 @@ function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
   }
 
   if (nextStep === 'REGISTRATION_COMPLETE') {
-    return user.is_onboarded === false ? 'authenticated' : 'authenticated';
+    return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated';
   }
 
   if (!user.email_verified_at) {
@@ -208,7 +208,7 @@ function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
     return 'pending_whatsapp_verification';
   }
 
-  return user.is_onboarded === false ? 'authenticated' : 'authenticated';
+  return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated';
 }
 
 function createAuthSession({
@@ -934,7 +934,7 @@ export async function registerWithApi(
       method: 'POST',
       body: {
         ...payload,
-        fcm_token: payload.fcm_token || mockFCMToken,
+        fcm_token: payload.fcm_token,
       } as any,
     });
 
@@ -1145,11 +1145,11 @@ export async function sendWhatsappOtp(
 
     return persistSessionResult(nextSession, buildMockWhatsappOtpMessage(payload.whatsapp_number));
   }
-
   const response = await apiFetch<WhatsappOtpMessageResponse>(AUTH_API.WHATSAPP_SEND_OTP, {
     method: 'POST',
     body: payload as any,
   });
+
   const nextSession = withFreshWhatsappOtpSession(session, payload.whatsapp_number);
 
   return persistSessionResult(nextSession, response);

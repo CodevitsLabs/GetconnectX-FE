@@ -369,7 +369,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const register = React.useCallback(
     async (payload: RegisterPayload) => {
-      console.log('registering', payload);
       const result = await registerWithApi(payload);
       setSession(result.session);
       setAuthPhase(result.session.authPhase);
