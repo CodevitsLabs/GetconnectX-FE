@@ -1,13 +1,16 @@
 import { builderFlowSteps } from './builder-flows';
 import {
+  availabilityStep,
   builderIdentityDetailsStep,
-  experienceAndIndustriesStep,
+  dataDiriStep,
+  experienceStep,
+  founderGoalStep,
+  industriesInterestStep,
   locationPreferencesStep,
-  personalBasicsStep,
-  personalNameStep,
   primaryRoleStep,
   startupIdentityDetailsStep,
   useConnectxStep,
+  welcomeStep,
 } from './common-steps';
 import { startupFinishStep, startupMatchingStep } from './startup-flow';
 import type {
@@ -25,16 +28,31 @@ import type {
 } from '../types/onboarding.types';
 
 export const ONBOARDING_STEP_ORDER: OnboardingStepId[] = [
-  'step_personal_name',
+  'step_welcome',
+  'step_data_diri',
   'step_use_connectx',
   'step_identity_details',
-  'step_personal_basics',
+  'step_founder_goal',
   'step_location_preferences',
-  'step_experience_and_industries',
+  'step_experience',
+  'step_industries_interest',
+  'step_availability',
   'step_primary_role',
   'step_matching_preferences',
   'step_compensation_and_profile_finish',
 ];
+
+export function getEffectiveStepOrder(answers: OnboardingAnswers): OnboardingStepId[] {
+  const isFounderPath =
+    answers.q_use_connectx === 'builder' && answers.q_builder_type === 'founder';
+
+  return ONBOARDING_STEP_ORDER.filter((stepId) => {
+    if (stepId === 'step_founder_goal') {
+      return isFounderPath;
+    }
+    return true;
+  });
+}
 
 function localizeText(value: LocalizedText | null | undefined, locale: OnboardingLocale) {
   if (!value) {
@@ -149,20 +167,26 @@ export function getStepTemplate(
   answers: OnboardingAnswers
 ): LocalizedOnboardingStepTemplate {
   switch (stepId) {
-    case 'step_personal_name':
-      return personalNameStep;
+    case 'step_welcome':
+      return welcomeStep;
+    case 'step_data_diri':
+      return dataDiriStep;
     case 'step_use_connectx':
       return useConnectxStep;
     case 'step_identity_details':
       return answers.q_use_connectx === 'startup'
         ? startupIdentityDetailsStep
         : builderIdentityDetailsStep;
-    case 'step_personal_basics':
-      return personalBasicsStep;
+    case 'step_founder_goal':
+      return founderGoalStep;
     case 'step_location_preferences':
       return locationPreferencesStep;
-    case 'step_experience_and_industries':
-      return experienceAndIndustriesStep;
+    case 'step_experience':
+      return experienceStep;
+    case 'step_industries_interest':
+      return industriesInterestStep;
+    case 'step_availability':
+      return availabilityStep;
     case 'step_primary_role':
       return primaryRoleStep;
     case 'step_matching_preferences':
@@ -170,7 +194,7 @@ export function getStepTemplate(
     case 'step_compensation_and_profile_finish':
       return getFinishStep(resolveFlowKey(answers));
     default:
-      return personalNameStep;
+      return welcomeStep;
   }
 }
 
@@ -181,6 +205,10 @@ export function materializeStep(
 ): OnboardingStep {
   const template = getStepTemplate(stepId, answers);
   const flowKey = resolveFlowKey(answers) ?? 'common_data_diri';
+  const effectiveOrder = getEffectiveStepOrder(answers);
+  const effectiveIndex = effectiveOrder.indexOf(stepId);
+  const total = effectiveOrder.length;
+  const current = effectiveIndex >= 0 ? effectiveIndex + 1 : template.overall_progress.current;
 
   return {
     can_go_back: template.can_go_back,
@@ -190,7 +218,7 @@ export function materializeStep(
     },
     flow_key: flowKey,
     id: template.id,
-    overall_progress: template.overall_progress,
+    overall_progress: { current, total },
     questions: template.questions.map((question) => localizeQuestion(question, locale)),
     section: template.section[locale],
     section_progress: template.section_progress,
@@ -199,28 +227,30 @@ export function materializeStep(
   };
 }
 
-export function getStepIndex(stepId: OnboardingStepId) {
-  return ONBOARDING_STEP_ORDER.indexOf(stepId);
+export function getStepIndex(stepId: OnboardingStepId, answers: OnboardingAnswers) {
+  return getEffectiveStepOrder(answers).indexOf(stepId);
 }
 
-export function getNextStepId(stepId: OnboardingStepId) {
-  const currentIndex = getStepIndex(stepId);
+export function getNextStepId(stepId: OnboardingStepId, answers: OnboardingAnswers) {
+  const order = getEffectiveStepOrder(answers);
+  const currentIndex = order.indexOf(stepId);
 
-  if (currentIndex < 0 || currentIndex >= ONBOARDING_STEP_ORDER.length - 1) {
+  if (currentIndex < 0 || currentIndex >= order.length - 1) {
     return null;
   }
 
-  return ONBOARDING_STEP_ORDER[currentIndex + 1];
+  return order[currentIndex + 1];
 }
 
-export function getPreviousStepId(stepId: OnboardingStepId) {
-  const currentIndex = getStepIndex(stepId);
+export function getPreviousStepId(stepId: OnboardingStepId, answers: OnboardingAnswers) {
+  const order = getEffectiveStepOrder(answers);
+  const currentIndex = order.indexOf(stepId);
 
   if (currentIndex <= 0) {
     return null;
   }
 
-  return ONBOARDING_STEP_ORDER[currentIndex - 1];
+  return order[currentIndex - 1];
 }
 
 function asArray(value: OnboardingAnswerValue | undefined) {
