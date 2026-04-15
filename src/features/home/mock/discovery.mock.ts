@@ -892,6 +892,26 @@ export const mockDiscoveryFilterOptionsByMode: Record<DiscoveryMode, DiscoveryFi
       ],
     },
     {
+      id: 'cofounderReadiness',
+      title: 'Co-Founder Readiness',
+      type: 'group',
+      ui: { component: 'group', collapsible: true, defaultCollapsed: false },
+      fields: [
+        {
+          id: 'readinessIds',
+          title: 'Readiness Signals',
+          type: 'multi_select',
+          ui: { component: 'checkbox_list' },
+          options: [
+            { id: 'cr_problem_validated', label: 'Problem Validated' },
+            { id: 'cr_mvp_in_progress', label: 'MVP In Progress' },
+            { id: 'cr_full_time_commitment', label: 'Full-time Commitment' },
+            { id: 'cr_fundraising_ready', label: 'Fundraising Ready' },
+          ],
+        },
+      ],
+    },
+    {
       id: 'globalCompatibility',
       title: 'Global Compatibility',
       type: 'group',

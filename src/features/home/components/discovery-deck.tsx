@@ -1277,23 +1277,6 @@ export function DiscoveryDeck() {
       setIsApplyingFilters(true);
 
       try {
-        if (!isConnectXProActive) {
-          const result = await presentPaywallIfNeeded();
-          const unlockedPro =
-            isConnectXProActive ||
-            result === PAYWALL_RESULT.PURCHASED ||
-            result === PAYWALL_RESULT.RESTORED;
-
-          if (!unlockedPro) {
-            setFilterError(
-              supported
-                ? 'ConnectX Pro is required to apply discovery filters.'
-                : 'Discovery premium filters are available in native builds with ConnectX Pro.'
-            );
-            return;
-          }
-        }
-
         const sanitizedNextFilters = sanitizeDiscoveryFilters(
           nextFilters,
           getFallbackFilterOptions(mode).data.sections
@@ -1344,12 +1327,12 @@ export function DiscoveryDeck() {
         setFilterError(null);
         setIsFilterVisible(false);
       } catch (error) {
-        setFilterError(getErrorMessage(error, 'Unable to open the ConnectX Pro upgrade flow.'));
+        setFilterError(getErrorMessage(error, 'Unable to generate candidates with these filters.'));
       } finally {
         setIsApplyingFilters(false);
       }
     },
-    [deviceCoordinates, isConnectXProActive, presentPaywallIfNeeded, supported]
+    [deviceCoordinates]
   );
 
   const handleModeChange = React.useCallback((mode: DiscoveryMode) => {
@@ -1416,6 +1399,7 @@ export function DiscoveryDeck() {
             : null)
       }
       goalOptions={goalOptions}
+      hasConnectXPro={isConnectXProActive}
       initialAppliedMode={appliedMode}
       initialFilters={appliedFilters}
       isApplying={isApplyingFilters}
