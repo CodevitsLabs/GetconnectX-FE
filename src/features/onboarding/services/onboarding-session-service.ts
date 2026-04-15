@@ -24,9 +24,9 @@ import type {
   OnboardingValidationErrorResponse,
 } from '../types/onboarding.types';
 
-const SESSION_KEY_PREFIX = 'connectx.onboarding.session.';
-const ACTIVE_SESSION_KEY_PREFIX = 'connectx.onboarding.active.';
-const FIRST_STEP_ID: OnboardingStepId = 'step_personal_name';
+const SESSION_KEY_PREFIX = 'connectx.onboarding.session.v2.';
+const ACTIVE_SESSION_KEY_PREFIX = 'connectx.onboarding.active.v2.';
+const FIRST_STEP_ID: OnboardingStepId = 'step_welcome';
 
 function getSessionStorageKey(sessionId: string) {
   return `${SESSION_KEY_PREFIX}${sessionId}`;
@@ -542,7 +542,7 @@ export async function submitMockOnboardingAnswers(
     return buildValidationError(validationErrors);
   }
 
-  const nextStepId = getNextStepId(session.currentStepId);
+  const nextStepId = getNextStepId(session.currentStepId, nextAnswers);
   const updatedAt = new Date().toISOString();
   const updatedSession: OnboardingSessionState = {
     ...session,

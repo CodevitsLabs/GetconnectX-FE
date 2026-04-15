@@ -31,15 +31,36 @@ function question<TQuestion extends LocalizedOnboardingQuestion>(value: TQuestio
   return value;
 }
 
-export const personalNameStep = {
+export const welcomeStep = {
   can_go_back: false,
-  cta: continueCta,
-  id: 'step_personal_name',
+  cta: {
+    enabled_when: 'always',
+    label: copy('Get Started', 'Mulai'),
+  },
+  id: 'step_welcome',
   overall_progress: { current: 1, total: 9 },
+  questions: [],
+  section: copy("Let's get started", 'Mari mulai'),
+  section_progress: '1/1',
+  subtitle: copy(
+    'ConnectX matches you with co-founders, teammates, and startups based on skills, goals, and compatibility.',
+    'ConnectX mencocokkanmu dengan co-founder, rekan tim, dan startup berdasarkan skill, tujuan, dan kecocokan.'
+  ),
+  title: copy(
+    'Find the right people to build with',
+    'Temukan orang yang tepat untuk membangun bersama'
+  ),
+} satisfies LocalizedOnboardingStepTemplate;
+
+export const dataDiriStep = {
+  can_go_back: true,
+  cta: continueCta,
+  id: 'step_data_diri',
+  overall_progress: { current: 2, total: 9 },
   questions: [
     question({
       id: 'q_first_name',
-      label: copy('First Name', 'Nama Depan'),
+      label: copy('First name', 'Nama depan'),
       placeholder: copy('Your first name', 'Nama depan kamu'),
       required: true,
       type: 'text',
@@ -47,46 +68,67 @@ export const personalNameStep = {
     }),
     question({
       helper_text: copy(
-        'Last name is optional and shared only after a connection.',
-        'Nama belakang opsional dan hanya dibagikan setelah terkoneksi.'
+        'Optional, only shared after a connection.',
+        'Opsional, hanya dibagikan setelah terkoneksi.'
       ),
       id: 'q_last_name',
-      label: copy('Last Name', 'Nama Belakang'),
+      label: copy('Last name', 'Nama belakang'),
       placeholder: copy('Your last name', 'Nama belakang kamu'),
       required: false,
       type: 'text',
       validation: { max_length: 50 },
     }),
+    question({
+      id: 'q_date_of_birth',
+      label: copy('Date of birth', 'Tanggal lahir'),
+      placeholder: copy('YYYY-MM-DD', 'YYYY-MM-DD'),
+      required: true,
+      type: 'date',
+      validation: { min_length: 10 },
+    }),
+    question({
+      id: 'q_city',
+      label: copy('Where are you based?', 'Kamu berbasis di mana?'),
+      meta: { searchable: true },
+      options: cityOptions,
+      placeholder: copy('Search a city', 'Cari kota'),
+      required: true,
+      type: 'searchable_dropdown',
+      validation: { min_length: 1 },
+    }),
+    question({
+      id: 'q_gender',
+      label: copy('Gender', 'Gender'),
+      options: genderOptions,
+      required: true,
+      type: 'single_select_chip',
+      validation: { min_length: 1 },
+    }),
   ],
   section: copy("Let's build your general profile", 'Mari bangun profil umum kamu'),
   section_progress: '1/3',
   subtitle: copy(
-    'Start with the basics so we can personalize your journey.',
-    'Mulai dari data dasar agar perjalananmu bisa dipersonalisasi.'
+    'The basics we need to personalize your matches.',
+    'Data dasar yang kami butuhkan untuk mempersonalisasi match kamu.'
   ),
-  title: copy("What's your name?", 'Siapa namamu?'),
+  title: copy('Tell us about yourself', 'Ceritakan tentang dirimu'),
 } satisfies LocalizedOnboardingStepTemplate;
 
 export const useConnectxStep = {
   can_go_back: true,
   cta: continueCta,
   id: 'step_use_connectx',
-  overall_progress: { current: 2, total: 9 },
+  overall_progress: { current: 3, total: 9 },
   questions: [
     question({
-      helper_text: copy(
-        'This choice shapes the rest of your onboarding.',
-        'Pilihan ini menentukan sisa alur onboardingmu.'
-      ),
       id: 'q_use_connectx',
-      label: copy('How do you want to use ConnectX?', 'Bagaimana kamu ingin menggunakan ConnectX?'),
+      label: copy('', ''),
       meta: {
         auto_advance: true,
         layout: 'list',
       },
       options: useConnectxOptions,
       required: true,
-      sub_label: copy('Pick the path that best matches today.', 'Pilih jalur yang paling sesuai saat ini.'),
       type: 'single_select_card',
       validation: { min_length: 1 },
     }),
@@ -94,8 +136,8 @@ export const useConnectxStep = {
   section: copy("Let's build your general profile", 'Mari bangun profil umum kamu'),
   section_progress: '2/3',
   subtitle: copy(
-    'This shapes your entire experience.',
-    'Ini akan membentuk seluruh pengalamanmu.'
+    'This shapes your entire experience',
+    'Ini akan membentuk seluruh pengalamanmu'
   ),
   title: copy('How do you want to use ConnectX?', 'Bagaimana kamu ingin menggunakan ConnectX?'),
 } satisfies LocalizedOnboardingStepTemplate;
@@ -104,12 +146,13 @@ export const builderIdentityDetailsStep = {
   can_go_back: true,
   cta: continueCta,
   id: 'step_identity_details',
-  overall_progress: { current: 3, total: 9 },
+  overall_progress: { current: 4, total: 9 },
   questions: [
     question({
       id: 'q_builder_type',
-      label: copy('Which builder path fits you best?', 'Jalur builder mana yang paling cocok untukmu?'),
+      label: copy('', ''),
       meta: {
+        auto_advance: true,
         layout: 'list',
       },
       options: builderTypeOptions,
@@ -117,18 +160,25 @@ export const builderIdentityDetailsStep = {
       type: 'single_select_card',
       validation: { min_length: 1 },
     }),
+  ],
+  section: copy("Let's build your general profile", 'Mari bangun profil umum kamu'),
+  section_progress: '3/3',
+  subtitle: copy(
+    "This determines what you'll see in your feed",
+    'Ini menentukan apa yang akan muncul di feed-mu'
+  ),
+  title: copy('What best describes you?', 'Apa yang paling menggambarkanmu?'),
+} satisfies LocalizedOnboardingStepTemplate;
+
+export const founderGoalStep = {
+  can_go_back: true,
+  cta: continueCta,
+  id: 'step_founder_goal',
+  overall_progress: { current: 5, total: 10 },
+  questions: [
     question({
-      depends_on: {
-        operator: 'equals',
-        question_id: 'q_builder_type',
-        value: 'founder',
-      },
-      helper_text: copy(
-        'Pick the most urgent hiring need for your company.',
-        'Pilih kebutuhan rekrutmen yang paling mendesak untuk startupmu.'
-      ),
       id: 'q_founder_goal',
-      label: copy('What are you looking for right now?', 'Saat ini kamu sedang mencari apa?'),
+      label: copy('', ''),
       meta: {
         auto_advance: true,
         layout: 'list',
@@ -140,19 +190,19 @@ export const builderIdentityDetailsStep = {
     }),
   ],
   section: copy("Let's build your general profile", 'Mari bangun profil umum kamu'),
-  section_progress: '3/3',
+  section_progress: '4/4',
   subtitle: copy(
-    'We will tailor the rest of the questions to your path.',
-    'Kami akan menyesuaikan pertanyaan selanjutnya dengan jalurmu.'
+    'Pick the most urgent hiring need for your startup',
+    'Pilih kebutuhan rekrutmen yang paling mendesak untuk startupmu'
   ),
-  title: copy('Tell us your role in the ecosystem', 'Ceritakan peranmu di ekosistem startup'),
+  title: copy('What are you looking for?', 'Apa yang sedang kamu cari?'),
 } satisfies LocalizedOnboardingStepTemplate;
 
 export const startupIdentityDetailsStep = {
   can_go_back: true,
   cta: continueCta,
   id: 'step_identity_details',
-  overall_progress: { current: 3, total: 9 },
+  overall_progress: { current: 4, total: 9 },
   questions: [
     question({
       id: 'q_startup_name',
@@ -189,68 +239,12 @@ export const startupIdentityDetailsStep = {
   title: copy('Tell us about your startup', 'Ceritakan tentang startupmu'),
 } satisfies LocalizedOnboardingStepTemplate;
 
-export const personalBasicsStep = {
-  can_go_back: true,
-  cta: continueCta,
-  id: 'step_personal_basics',
-  overall_progress: { current: 4, total: 9 },
-  questions: [
-    question({
-      id: 'q_date_of_birth',
-      label: copy("When's your date of birth?", 'Kapan tanggal lahirmu?'),
-      placeholder: copy('YYYY-MM-DD', 'YYYY-MM-DD'),
-      required: true,
-      type: 'date',
-      validation: { min_length: 10 },
-    }),
-    question({
-      id: 'q_gender',
-      label: copy('Gender', 'Gender'),
-      options: genderOptions,
-      required: true,
-      type: 'segmented',
-      validation: { min_length: 1 },
-    }),
-    question({
-      helper_text: copy(
-        'Use the number you want to share with future matches.',
-        'Gunakan nomor yang ingin kamu bagikan ke match di masa depan.'
-      ),
-      id: 'q_contact_phone',
-      label: copy('Best phone number', 'Nomor telepon terbaik'),
-      placeholder: copy('+62 812 3456 7890', '+62 812 3456 7890'),
-      required: true,
-      type: 'phone',
-      validation: { min_length: 10 },
-    }),
-  ],
-  section: copy('How and where you work', 'Bagaimana dan di mana kamu bekerja'),
-  section_progress: '1/3',
-  subtitle: copy(
-    'We use this to match you more accurately.',
-    'Kami menggunakan ini untuk mencocokkanmu dengan lebih akurat.'
-  ),
-  title: copy('A few personal details', 'Beberapa detail personal'),
-} satisfies LocalizedOnboardingStepTemplate;
-
 export const locationPreferencesStep = {
   can_go_back: true,
   cta: continueCta,
   id: 'step_location_preferences',
   overall_progress: { current: 5, total: 9 },
   questions: [
-    question({
-      id: 'q_city',
-      label: copy('Where are you based right now?', 'Saat ini kamu berbasis di mana?'),
-      meta: {
-        searchable: true,
-      },
-      options: cityOptions,
-      placeholder: copy('Search a city', 'Cari kota'),
-      required: true,
-      type: 'searchable_dropdown',
-      validation: { min_length: 1 },
-    }),
     question({
       id: 'q_location_based',
       label: copy('Which location setup works best for you?', 'Pengaturan lokasi kerja mana yang paling cocok untukmu?'),
@@ -291,7 +285,7 @@ export const locationPreferencesStep = {
     }),
   ],
   section: copy('How and where you work', 'Bagaimana dan di mana kamu bekerja'),
-  section_progress: '2/3',
+  section_progress: '1/2',
   subtitle: copy(
     'This helps us surface roles and people in the right markets.',
     'Ini membantu kami menampilkan peran dan orang di market yang tepat.'
@@ -299,35 +293,63 @@ export const locationPreferencesStep = {
   title: copy('Location preferences', 'Preferensi lokasi'),
 } satisfies LocalizedOnboardingStepTemplate;
 
-export const experienceAndIndustriesStep = {
+export const experienceStep = {
   can_go_back: true,
   cta: continueCta,
-  id: 'step_experience_and_industries',
+  id: 'step_experience',
   overall_progress: { current: 6, total: 9 },
   questions: [
     question({
       id: 'q_startup_experience',
-      label: copy('How much startup experience do you have?', 'Seberapa besar pengalaman startupmu?'),
+      label: copy('', ''),
       options: startupExperienceOptions,
       required: true,
       type: 'single_select_radio',
       validation: { min_length: 1 },
     }),
+  ],
+  section: copy('How and where you work', 'Bagaimana dan di mana kamu bekerja'),
+  section_progress: '2/4',
+  subtitle: copy(
+    'This helps us match you with the right stage of companies',
+    'Ini membantu kami mencocokkanmu dengan perusahaan di tahap yang tepat'
+  ),
+  title: copy(
+    'How much startup experience do you have?',
+    'Seberapa besar pengalaman startupmu?'
+  ),
+} satisfies LocalizedOnboardingStepTemplate;
+
+export const industriesInterestStep = {
+  can_go_back: true,
+  cta: continueCta,
+  id: 'step_industries_interest',
+  overall_progress: { current: 7, total: 9 },
+  questions: [
     question({
-      helper_text: copy(
-        'Choose up to five industries that genuinely excite you.',
-        'Pilih maksimal lima industri yang benar-benar membuatmu tertarik.'
-      ),
       id: 'q_industries_interest',
-      label: copy('Which industries are you most interested in?', 'Industri apa yang paling kamu minati?'),
+      label: copy('', ''),
       options: industryOptions,
       required: true,
       type: 'multi_select_chip',
       validation: { max_selections: 5, min_selections: 1 },
     }),
+  ],
+  section: copy('How and where you work', 'Bagaimana dan di mana kamu bekerja'),
+  section_progress: '3/4',
+  subtitle: copy('Select all that apply', 'Pilih semua yang sesuai'),
+  title: copy('What industries interest you?', 'Industri apa yang menarik minatmu?'),
+} satisfies LocalizedOnboardingStepTemplate;
+
+export const availabilityStep = {
+  can_go_back: true,
+  cta: continueCta,
+  id: 'step_availability',
+  overall_progress: { current: 8, total: 9 },
+  questions: [
     question({
       id: 'q_availability',
-      label: copy('What availability are you aiming for?', 'Availability seperti apa yang kamu incar?'),
+      label: copy('', ''),
       options: availabilityOptions,
       placeholder: copy('Select availability', 'Pilih availability'),
       required: true,
@@ -336,12 +358,12 @@ export const experienceAndIndustriesStep = {
     }),
   ],
   section: copy('How and where you work', 'Bagaimana dan di mana kamu bekerja'),
-  section_progress: '3/3',
+  section_progress: '4/4',
   subtitle: copy(
-    'This sharpens the quality of the opportunities we show you.',
-    'Ini mempertajam kualitas peluang yang kami tampilkan untukmu.'
+    'How much time can you commit?',
+    'Berapa banyak waktu yang bisa kamu curahkan?'
   ),
-  title: copy('Experience and interests', 'Pengalaman dan minat'),
+  title: copy("What's your availability?", 'Apa availability-mu?'),
 } satisfies LocalizedOnboardingStepTemplate;
 
 export const primaryRoleStep = {

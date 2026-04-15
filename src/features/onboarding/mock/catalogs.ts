@@ -38,9 +38,12 @@ export const yesNoOptions = [
 ] satisfies LocalizedOnboardingOption[];
 
 export const genderOptions = [
-  option('opt_gender_female', 'female', copy('Female', 'Perempuan')),
-  option('opt_gender_male', 'male', copy('Male', 'Laki-laki')),
-  option('opt_gender_other', 'other', copy('Other', 'Lainnya')),
+  option('opt_gender_female', 'female', copy('Female', 'Perempuan'), {
+    icon: 'female',
+  }),
+  option('opt_gender_male', 'male', copy('Male', 'Laki-laki'), {
+    icon: 'male',
+  }),
 ] satisfies LocalizedOnboardingOption[];
 
 export const useConnectxOptions = [
@@ -62,13 +65,22 @@ export const useConnectxOptions = [
 
 export const builderTypeOptions = [
   option('opt_builder_founder', 'founder', copy('Founder', 'Founder'), {
-    subLabel: copy('I am building something', 'Saya sedang membangun sesuatu'),
+    icon: 'founder_rocket',
+    subLabel: copy(
+      "I'm building something and looking for people",
+      'Saya sedang membangun sesuatu dan mencari orang'
+    ),
   }),
   option('opt_builder_cofounder', 'cofounder', copy('Co-Founder', 'Co-Founder'), {
-    subLabel: copy('I want to join a startup early', 'Saya ingin bergabung di tahap awal'),
+    icon: 'cofounder_handshake',
+    subLabel: copy(
+      'I want to join a startup as a co-founder',
+      'Saya ingin bergabung sebagai co-founder'
+    ),
   }),
   option('opt_builder_team_member', 'team_member', copy('Team Member', 'Anggota Tim'), {
-    subLabel: copy('I want to join as an operator or builder', 'Saya ingin bergabung sebagai operator atau builder'),
+    icon: 'team_member_group',
+    subLabel: copy('I want to join a startup team', 'Saya ingin bergabung di tim startup'),
   }),
 ] satisfies LocalizedOnboardingOption[];
 
@@ -85,25 +97,25 @@ export const startupStageOptions = [
 ] satisfies LocalizedOnboardingOption[];
 
 export const cityOptions = [
-  option('opt_city_jakarta', 'jakarta', copy('Jakarta', 'Jakarta'), {
+  option('opt_city_jakarta', 'jakarta', copy('Jakarta, Indonesia', 'Jakarta, Indonesia'), {
     group: copy('Indonesia', 'Indonesia'),
   }),
-  option('opt_city_bandung', 'bandung', copy('Bandung', 'Bandung'), {
+  option('opt_city_bandung', 'bandung', copy('Bandung, Indonesia', 'Bandung, Indonesia'), {
     group: copy('Indonesia', 'Indonesia'),
   }),
-  option('opt_city_yogyakarta', 'yogyakarta', copy('Yogyakarta', 'Yogyakarta'), {
+  option('opt_city_yogyakarta', 'yogyakarta', copy('Yogyakarta, Indonesia', 'Yogyakarta, Indonesia'), {
     group: copy('Indonesia', 'Indonesia'),
   }),
-  option('opt_city_singapore', 'singapore', copy('Singapore', 'Singapura'), {
+  option('opt_city_singapore', 'singapore', copy('Singapore, Singapore', 'Singapura, Singapura'), {
     group: copy('Singapore', 'Singapura'),
   }),
-  option('opt_city_bangalore', 'bangalore', copy('Bangalore', 'Bangalore'), {
+  option('opt_city_bangalore', 'bangalore', copy('Bangalore, India', 'Bangalore, India'), {
     group: copy('India', 'India'),
   }),
-  option('opt_city_hcmc', 'hcmc', copy('Ho Chi Minh City', 'Ho Chi Minh City'), {
+  option('opt_city_hcmc', 'hcmc', copy('Ho Chi Minh City, Vietnam', 'Ho Chi Minh City, Vietnam'), {
     group: copy('Vietnam', 'Vietnam'),
   }),
-  option('opt_city_dubai', 'dubai', copy('Dubai', 'Dubai'), {
+  option('opt_city_dubai', 'dubai', copy('Dubai, United Arab Emirates', 'Dubai, Uni Emirat Arab'), {
     group: copy('United Arab Emirates', 'Uni Emirat Arab'),
   }),
 ] satisfies LocalizedOnboardingOption[];
@@ -153,18 +165,14 @@ export const startupExperienceOptions = [
 ] satisfies LocalizedOnboardingOption[];
 
 export const industryOptions = [
-  option('opt_industry_ai', 'ai', copy('AI & Automation', 'AI & Otomasi')),
-  option('opt_industry_fintech', 'fintech', copy('Fintech', 'Fintech')),
-  option('opt_industry_healthtech', 'healthtech', copy('Healthtech', 'Healthtech')),
-  option('opt_industry_edtech', 'edtech', copy('Edtech', 'Edtech')),
-  option('opt_industry_climate', 'climate', copy('Climate', 'Iklim')),
-  option('opt_industry_consumer', 'consumer', copy('Consumer', 'Consumer')),
-  option('opt_industry_b2b_saas', 'b2b_saas', copy('B2B SaaS', 'B2B SaaS')),
-  option('opt_industry_marketplace', 'marketplace', copy('Marketplace', 'Marketplace')),
-  option('opt_industry_logistics', 'logistics', copy('Logistics', 'Logistik')),
-  option('opt_industry_web3', 'web3', copy('Web3', 'Web3')),
-  option('opt_industry_devtools', 'devtools', copy('Developer Tools', 'Developer Tools')),
-  option('opt_industry_media', 'media', copy('Media & Creator Economy', 'Media & Creator Economy')),
+  option('opt_industry_saas', 'saas', copy('SaaS', 'SaaS'), { icon: 'target' }),
+  option('opt_industry_fintech', 'fintech', copy('Fintech', 'Fintech'), { icon: 'target' }),
+  option('opt_industry_ecommerce', 'ecommerce', copy('E-Commerce', 'E-Commerce'), { icon: 'target' }),
+  option('opt_industry_healthtech', 'healthtech', copy('Health Tech', 'Health Tech'), { icon: 'target' }),
+  option('opt_industry_edtech', 'edtech', copy('EdTech', 'EdTech'), { icon: 'target' }),
+  option('opt_industry_ai_ml', 'ai_ml', copy('AI / ML', 'AI / ML'), { icon: 'target' }),
+  option('opt_industry_climate', 'climate', copy('Climate Tech', 'Climate Tech'), { icon: 'target' }),
+  option('opt_industry_social', 'social', copy('Social Impact', 'Social Impact'), { icon: 'target' }),
 ] satisfies LocalizedOnboardingOption[];
 
 export const availabilityOptions = [

@@ -14,12 +14,15 @@ export type OnboardingFlowKey =
   | 'startup_representative';
 
 export type OnboardingStepId =
-  | 'step_personal_name'
+  | 'step_welcome'
+  | 'step_data_diri'
   | 'step_use_connectx'
   | 'step_identity_details'
-  | 'step_personal_basics'
+  | 'step_founder_goal'
   | 'step_location_preferences'
-  | 'step_experience_and_industries'
+  | 'step_experience'
+  | 'step_industries_interest'
+  | 'step_availability'
   | 'step_primary_role'
   | 'step_matching_preferences'
   | 'step_compensation_and_profile_finish';
@@ -38,6 +41,7 @@ export type OnboardingQuestionType =
   | 'url'
   | 'phone'
   | 'single_select_card'
+  | 'single_select_chip'
   | 'single_select_radio'
   | 'multi_select_card'
   | 'multi_select_chip'
