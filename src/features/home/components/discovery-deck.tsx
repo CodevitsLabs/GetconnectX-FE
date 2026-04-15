@@ -758,7 +758,7 @@ function StartupCardContent({
 
         <View className="gap-3">
           <SectionLabel icon="people-outline" title="Team & Stage" />
-          <AppCard className="rounded-[18px] p-4">
+          <AppCard className="rounded-[18px] p-4 bg-[#2C2C2C] border-white/10">
             <View className="flex-row flex-wrap gap-y-4">
               <View className="w-1/2 gap-1 pr-2">
                 <AppText className="text-[12px]" tone="muted">

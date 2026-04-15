@@ -216,12 +216,12 @@ function OptionChip({
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: disabled ? '#17191E' : active ? '#2A2117' : '#1A1C22',
+        backgroundColor: disabled ? '#17191E' : active ? '#2A2117' : '#2C2C2C',
         borderColor: disabled
           ? 'rgba(102, 112, 133, 0.18)'
           : active
             ? 'rgba(255, 154, 62, 0.5)'
-            : 'rgba(152, 162, 179, 0.18)',
+            : 'rgba(255, 255, 255, 0.1)',
         opacity: disabled ? 0.6 : 1,
       }}>
       <AppText
@@ -249,27 +249,27 @@ function GoalCard({
 }) {
   return (
     <Pressable
-      className="min-h-[100px] flex-1 rounded-[24px] border px-5 py-4"
+      className="h-[82px] w-full rounded-[16px] border px-3.5 py-3"
       onPress={onPress}
       style={{
-        backgroundColor: active ? '#3B2A1C' : '#1B1D22',
-        borderColor: active ? '#FF9A3E' : 'rgba(152, 162, 179, 0.16)',
+        backgroundColor: active ? '#3B2A1C' : '#2C2C2C',
+        borderColor: active ? '#FF9A3E' : 'rgba(255, 255, 255, 0.1)',
         shadowColor: active ? '#FF9A3E' : 'transparent',
         shadowOpacity: active ? 0.22 : 0,
         shadowRadius: active ? 8 : 0,
       }}>
-      <View className="gap-3">
-        <View className="flex-row items-center gap-3">
-          <Ionicons color={active ? '#FF9A3E' : '#98A2B3'} name={goalIcon(goalId)} size={20} />
+      <View className="gap-1.5">
+        <View className="flex-row items-center gap-2">
+          <Ionicons color={active ? '#FF9A3E' : '#98A2B3'} name={goalIcon(goalId)} size={16} />
           <AppText
-            className="flex-1 text-[15px]"
-            style={{ color: active ? '#FF9A3E' : '#F2F4F7' }}
-            variant="subtitle">
+            className="flex-1 text-[13px] font-semibold"
+            numberOfLines={1}
+            style={{ color: active ? '#FF9A3E' : '#F2F4F7' }}>
             {label}
           </AppText>
         </View>
         {description ? (
-          <AppText className="text-[13px]" tone="muted">
+          <AppText className="text-[11px] leading-[15px]" numberOfLines={2} style={{ color: active ? '#E3934B' : '#98A2B3' }}>
             {description}
           </AppText>
         ) : null}
@@ -413,12 +413,12 @@ function CheckboxRow({
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: disabled ? '#17191E' : active ? '#3B2A1C' : '#1B1D22',
+        backgroundColor: disabled ? '#17191E' : active ? '#3B2A1C' : '#2C2C2C',
         borderColor: disabled
           ? 'rgba(102, 112, 133, 0.16)'
           : active
             ? 'rgba(255, 154, 62, 0.5)'
-            : 'rgba(152, 162, 179, 0.14)',
+            : 'rgba(255, 255, 255, 0.1)',
         opacity: disabled ? 0.6 : 1,
       }}>
       <View
@@ -450,7 +450,7 @@ function SearchInput({
   return (
     <View
       className="flex-row items-center gap-2 rounded-[16px] border px-4"
-      style={{ backgroundColor: '#15171C', borderColor: 'rgba(152, 162, 179, 0.14)', minHeight: 46 }}>
+      style={{ backgroundColor: '#2C2C2C', borderColor: 'rgba(255, 255, 255, 0.1)', minHeight: 46 }}>
       <Ionicons color="#667085" name="search-outline" size={16} />
       <TextInput
         className="flex-1 font-body text-[14px] text-text"
@@ -690,7 +690,7 @@ export function DiscoveryFilterSheet({
           <View
             key={field.id}
             className="flex-row items-center justify-between rounded-[18px] border px-4 py-3"
-            style={{ backgroundColor: '#1B1D22', borderColor: 'rgba(152, 162, 179, 0.14)' }}>
+            style={{ backgroundColor: '#2C2C2C', borderColor: 'rgba(255, 255, 255, 0.1)' }}>
             <AppText className="flex-1 text-[14px]">{field.title}</AppText>
             <Switch
               disabled={disabled}
@@ -876,7 +876,7 @@ export function DiscoveryFilterSheet({
       <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(10, 10, 14, 0.62)' }}>
         <Pressable className="flex-1" onPress={onClose} />
         <View
-          className="rounded-t-[30px] border border-border bg-surface px-4 pt-4"
+          className="rounded-t-[30px] border border-white/10 bg-[#2C2C2C] px-4 pt-8"
           style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}>
           <View className="mb-4 flex-row items-start justify-between">
             <View className="flex-1 gap-1">
@@ -898,7 +898,7 @@ export function DiscoveryFilterSheet({
           </View>
 
           {errorMessage ? (
-            <AppCard tone="signal" className="mb-4 gap-1.5 rounded-[18px] p-3">
+            <AppCard tone="signal" className="mb-4 gap-1.5 rounded-[18px] border-white/10 bg-[#2C2C2C] p-3">
               <AppText variant="subtitle">Filters unavailable</AppText>
               <AppText tone="muted">{errorMessage}</AppText>
             </AppCard>
