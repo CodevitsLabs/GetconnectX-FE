@@ -40,7 +40,7 @@ function getInitials(value: string) {
 
 function ProfileStatCard({ label, value }: { label: string; value: number }) {
   return (
-    <AppCard className="flex-1 items-center rounded-[16px] px-2 py-3">
+    <AppCard className="flex-1 items-center rounded-[16px] px-2 py-3 bg-[#2C2C2C] border-white/10">
       <AppText align="center" className="text-[28px] leading-[32px]" variant="title">
         {value}
       </AppText>
@@ -131,7 +131,7 @@ function NamedItemList({
 
 function HighlightList({ items }: { items: string[] }) {
   return (
-    <AppCard className="gap-3 rounded-[20px] px-3.5 py-4">
+    <AppCard className="gap-3 rounded-[20px] px-3.5 py-4 bg-[#2C2C2C] border-white/10">
       {items.map((item, index) => (
         <View key={item} className="flex-row items-center gap-2.5">
           <Ionicons
@@ -255,8 +255,7 @@ export function ProfileScreen() {
 
           {startupIdeaSection ? (
             <AppCard
-              className="gap-2.5 rounded-[20px] px-3.5 py-4"
-              style={{ backgroundColor: '#231C13', borderColor: 'rgba(245, 158, 11, 0.28)' }}>
+              className="gap-2.5 rounded-[20px] px-3.5 py-4 bg-[#2C2C2C] border-white/10">
               <SectionTitle icon="bulb-outline" title={startupIdeaSection.title} />
               <AppText className="text-[14px] leading-6" tone="muted">
                 {startupIdeaSection.value}
@@ -265,7 +264,7 @@ export function ProfileScreen() {
           ) : null}
 
           {personalitySection ? (
-            <AppCard className="gap-3.5 rounded-[20px] px-3.5 py-4">
+            <AppCard className="gap-3.5 rounded-[20px] px-3.5 py-4 bg-[#2C2C2C] border-white/10">
               <SectionTitle icon="flash-outline" title={personalitySection.title} />
               <NamedItemList items={personalitySection.items} />
             </AppCard>
@@ -274,7 +273,7 @@ export function ProfileScreen() {
           {(skillsSection || interestsSection) ? (
             <View className="flex-row gap-2.5">
               {skillsSection ? (
-                <AppCard className="min-h-[160px] flex-1 gap-3.5 rounded-[20px] px-3.5 py-4">
+                <AppCard className="min-h-[160px] flex-1 gap-3.5 rounded-[20px] px-3.5 py-4 bg-[#2C2C2C] border-white/10">
                   <AppText className="text-[12px] tracking-[1px]" tone="muted" variant="label">
                     {skillsSection.title}
                   </AppText>
@@ -283,7 +282,7 @@ export function ProfileScreen() {
               ) : null}
 
               {interestsSection ? (
-                <AppCard className="min-h-[160px] flex-1 gap-3.5 rounded-[20px] px-3.5 py-4">
+                <AppCard className="min-h-[160px] flex-1 gap-3.5 rounded-[20px] px-3.5 py-4 bg-[#2C2C2C] border-white/10">
                   <AppText className="text-[12px] tracking-[1px]" tone="muted" variant="label">
                     {interestsSection.title}
                   </AppText>

@@ -601,11 +601,11 @@ function ProfileCardContent({
           <View className="gap-3">
             <SectionLabel icon="briefcase-outline" title="Experience" />
             {card.experience.map((item) => (
-              <AppCard key={item.id} className="gap-1.5 rounded-[16px] p-4">
+              <AppCard key={item.id} className="gap-1.5 rounded-[16px] p-4 bg-[#2C2C2C] border border-white/10 border-l-[2.5px] border-l-[#FF9A3E]">
                 <AppText className="text-[16px]" variant="title">
                   {item.title}
                 </AppText>
-                <AppText className="text-[13px]" tone="signal">
+                <AppText className="text-[13px] text-[#FF9A3E]">
                   {item.organization} · {item.period}
                 </AppText>
               </AppCard>
@@ -616,7 +616,7 @@ function ProfileCardContent({
         {card.education?.length ? (
           <View className="gap-3">
             {card.education.map((item) => (
-              <AppCard key={item.id} className="flex-row items-center gap-3.5 rounded-[16px] p-4">
+              <AppCard key={item.id} className="flex-row items-center gap-3.5 rounded-[16px] p-4 bg-[#2C2C2C] border-white/10">
                 <Ionicons color="#FFCD38" name="school-outline" size={24} />
                 <View className="flex-1 gap-0.5">
                   <AppText className="text-[16px]" variant="title">
