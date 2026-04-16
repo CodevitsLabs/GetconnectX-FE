@@ -1,13 +1,11 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
 
-import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 
 import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
-import { AuthShell } from './auth-shell';
+import { AuthVerificationShell } from './auth-verification-shell';
 
 function getSecondsRemaining(timestamp: string | null | undefined) {
   if (!timestamp) {
@@ -159,110 +157,90 @@ export function VerifyLoginOtpScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false, title: 'Verify Login OTP' }} />
-      <AuthShell
+      <AuthVerificationShell
+        actionLabel={isVerifying ? 'Verifying...' : 'Verify Login'}
+        codeError={otpError}
+        codeLabel="Login Code"
+        codePlaceholder="Enter 6-character code"
         description={`Enter the code sent to ${session.email} to finish signing in.`}
-        pill="Login Verification"
-        title="Verify your login">
-        <View className="flex-row justify-end -mt-2 mb-2">
-          <TouchableOpacity className="py-1 px-2" onPress={() => void handleExitToLogin()}>
-            <AppText className="font-medium text-[15px]" tone="muted">
-              Back to login
-            </AppText>
-          </TouchableOpacity>
-        </View>
+        exitLabel="Back to login"
+        footerNote="You'll be signed in after verification."
+        isActionDisabled={isVerifying || otpCode.trim().length !== 6}
+        onActionPress={async () => {
+          setIsVerifying(true);
+          setOtpError(null);
+          setStatusMessage(null);
+          setStatusTone('signal');
 
-        <View className="gap-4">
-          <AppInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            error={otpError ?? undefined}
-            hint="Enter the 6-character login code"
-            label="Login Code"
-            maxLength={6}
-            onChangeText={(value) => {
-              setOtpCode(value.slice(0, 6));
+          try {
+            const result = await verifyLoginOtp({
+              email: session.email,
+              otp_code: otpCode.trim(),
+            });
 
-              if (otpError) {
-                setOtpError(null);
-              }
-            }}
-            placeholder="Enter code"
-            value={otpCode}
-          />
+            if (isValidationError(result.response)) {
+              setOtpError(result.response.errors.otp_code[0] ?? result.response.message);
+              setStatusMessage(result.response.message);
+              setStatusTone('danger');
+              return;
+            }
 
-          <AppButton
-            detail="You’ll be signed in after verification"
-            disabled={isVerifying || otpCode.trim().length !== 6}
-            label={isVerifying ? 'Verifying...' : 'Verify Login'}
-            onPress={async () => {
-              setIsVerifying(true);
-              setOtpError(null);
-              setStatusMessage(null);
-              setStatusTone('signal');
+            setStatusMessage(result.response.message);
+            setStatusTone('signal');
+            router.replace(getRouteForAuthPhase(result.session.authPhase));
+          } catch (error) {
+            if (error instanceof ApiError && error.payload && typeof error.payload === 'object') {
+              const payload = error.payload as { message?: string };
+              setStatusMessage(payload.message ?? error.message);
+            } else {
+              setStatusMessage(error instanceof Error ? error.message : 'Login verification failed.');
+            }
+            setStatusTone('danger');
+          } finally {
+            setIsVerifying(false);
+          }
+        }}
+        onCodeChange={(value) => {
+          setOtpCode(value.slice(0, 6));
 
-              try {
-                const result = await verifyLoginOtp({
-                  email: session.email,
-                  otp_code: otpCode.trim(),
-                });
+          if (otpError) {
+            setOtpError(null);
+          }
+        }}
+        onExitPress={() => {
+          void handleExitToLogin();
+        }}
+        onResendPress={async () => {
+          setIsSendingOtp(true);
+          setStatusMessage(null);
+          setStatusTone('signal');
 
-                if (isValidationError(result.response)) {
-                  setOtpError(result.response.errors.otp_code[0] ?? result.response.message);
-                  setStatusMessage(result.response.message);
-                  setStatusTone('danger');
-                  return;
-                }
-
-                setStatusMessage(result.response.message);
-                setStatusTone('signal');
-                router.replace(getRouteForAuthPhase(result.session.authPhase));
-              } catch (error) {
-                if (error instanceof ApiError && error.payload && typeof error.payload === 'object') {
-                  const payload = error.payload as { message?: string };
-                  setStatusMessage(payload.message ?? error.message);
-                } else {
-                  setStatusMessage(error instanceof Error ? error.message : 'Login verification failed.');
-                }
-                setStatusTone('danger');
-              } finally {
-                setIsVerifying(false);
-              }
-            }}
-            size="lg"
-          />
-
-          <AppButton
-            detail={secondsRemaining ? `Try again in ${secondsRemaining}s` : 'Request a new code'}
-            disabled={isSendingOtp || secondsRemaining > 0}
-            label={isSendingOtp ? 'Sending code...' : 'Resend Code'}
-            onPress={async () => {
-              setIsSendingOtp(true);
-              setStatusMessage(null);
-              setStatusTone('signal');
-
-              try {
-                const result = await resendLoginOtp();
-                setStatusTone(getOtpMessageTone(result.response));
-                setStatusMessage(result.response.message);
-              } catch (error) {
-                setStatusTone('danger');
-                setStatusMessage(
-                  error instanceof Error ? error.message : 'Failed to resend login code.'
-                );
-              } finally {
-                setIsSendingOtp(false);
-              }
-            }}
-            variant="secondary"
-          />
-
-          {statusMessage ? (
-            <AppText selectable tone={statusTone}>
-              {statusMessage}
-            </AppText>
-          ) : null}
-        </View>
-      </AuthShell>
+          try {
+            const result = await resendLoginOtp();
+            setStatusTone(getOtpMessageTone(result.response));
+            setStatusMessage(result.response.message);
+          } catch (error) {
+            setStatusTone('danger');
+            setStatusMessage(
+              error instanceof Error ? error.message : 'Failed to resend login code.'
+            );
+          } finally {
+            setIsSendingOtp(false);
+          }
+        }}
+        resendDisabled={isSendingOtp || secondsRemaining > 0}
+        resendLabel={
+          isSendingOtp
+            ? 'Sending...'
+            : secondsRemaining > 0
+              ? `Resend in ${secondsRemaining}s`
+              : 'Resend code'
+        }
+        statusMessage={statusMessage}
+        statusTone={statusTone}
+        title="Verify your login"
+        codeValue={otpCode}
+      />
     </>
   );
 }

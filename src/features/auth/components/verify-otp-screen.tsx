@@ -5,10 +5,16 @@ import { Image } from 'expo-image';
 
 import { AppButton, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
-import { cn } from '@shared/utils/cn';
 
 import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
+
+const CANVAS_BG = '#212121';
+const ACCENT = '#FF9A3E';
+const FIELD_BG = '#292929';
+const FIELD_BORDER = '#383838';
+const TEXT_MUTED = '#98A2B3';
+const TEXT_SOFT = '#667085';
 
 function getSecondsRemaining(timestamp: string | null | undefined) {
   if (!timestamp) {
@@ -144,7 +150,8 @@ export function VerifyOtpScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-canvas"
+      className="flex-1"
+      style={{ backgroundColor: CANVAS_BG }}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
@@ -152,20 +159,24 @@ export function VerifyOtpScreen() {
 
         <TouchableOpacity 
           onPress={() => router.replace({ pathname: '/verify-whatsapp', params: { reset: 'true' } })}
-          className="h-12 w-12 items-center justify-center rounded-[16px] bg-surface-soft border border-border"
+          className="h-12 w-12 items-center justify-center rounded-[16px] border"
+          style={{ backgroundColor: FIELD_BG, borderColor: FIELD_BORDER }}
         >
           <Image
             source="sf:arrow.left"
-            style={{ width: 22, height: 22, tintColor: '#fff' }}
+            style={{ width: 22, height: 22, tintColor: TEXT_MUTED }}
           />
         </TouchableOpacity>
 
         <View className="flex-1 pt-8">
           <View className="gap-2 shrink-0">
-            <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
+            <AppText
+              variant="hero"
+              className="text-[32px] font-bold tracking-tight"
+              style={{ color: ACCENT }}>
               Verify account with OTP
             </AppText>
-            <AppText tone="muted" className="text-base">
+            <AppText className="text-base leading-6" style={{ color: TEXT_MUTED }}>
               We&apos;ve sent a 6-digit code to {maskWhatsappNumber(whatsappNumber)}
             </AppText>
           </View>
@@ -193,13 +204,16 @@ export function VerifyOtpScreen() {
                 return (
                   <View
                     key={index}
-                    className={cn(
-                      "h-[64px] flex-1 rounded-[12px] items-center justify-center bg-surface",
-                      isActive ? "border-[1.5px] border-accent" :
-                        hasValue ? "border-[1px] border-border-strong" : "border-[1px] border-transparent"
-                    )}
+                    className="h-[64px] flex-1 items-center justify-center rounded-[12px] border"
+                    style={{
+                      backgroundColor: FIELD_BG,
+                      borderColor: isActive ? ACCENT : hasValue ? FIELD_BORDER : 'transparent',
+                      borderWidth: isActive ? 1.5 : 1,
+                    }}
                   >
-                    <AppText variant="display" className="text-[28px] font-medium leading-none mt-1">
+                    <AppText
+                      variant="display"
+                      className="mt-1 text-[28px] font-medium leading-none text-white">
                       {otpCode[index] || ''}
                     </AppText>
                   </View>
@@ -208,13 +222,19 @@ export function VerifyOtpScreen() {
             </Pressable>
 
             {otpError || statusMessage ? (
-              <AppText tone={statusTone === 'danger' ? 'danger' : 'accent'} className="text-[15px] mt-1">
+              <AppText
+                className="mt-1 text-[15px]"
+                tone={statusTone === 'danger' ? 'danger' : 'accent'}>
                 {otpError || statusMessage}
               </AppText>
             ) : isVerifying ? (
-              <AppText tone="muted" className="text-[15px] mt-1">Verifying your OTP...</AppText>
+              <AppText className="mt-1 text-[15px]" style={{ color: TEXT_MUTED }}>
+                Verifying your OTP...
+              </AppText>
             ) : (
-              <AppText tone="muted" className="text-[15px] mt-1 opacity-0">Verifying your OTP...</AppText>
+              <AppText className="mt-1 text-[15px] opacity-0" style={{ color: TEXT_MUTED }}>
+                Verifying your OTP...
+              </AppText>
             )}
           </View>
 
@@ -224,7 +244,8 @@ export function VerifyOtpScreen() {
               label={isVerifying ? 'Verifying...' : 'Continue'}
               onPress={handleVerifyOtp}
               size="lg"
-              className="w-full bg-[#0066FF] rounded-[16px] border-none"
+              className="w-full rounded-[18px] border-none"
+              style={{ backgroundColor: ACCENT }}
             />
 
             <View className="mt-4 flex-row justify-center">
@@ -252,8 +273,8 @@ export function VerifyOtpScreen() {
                 }}
               >
                 <AppText
-                  tone={secondsRemaining > 0 ? 'muted' : 'accent'}
                   className="text-center font-medium"
+                  style={{ color: secondsRemaining > 0 ? TEXT_SOFT : ACCENT }}
                 >
                   {secondsRemaining > 0
                     ? `Resend code in ${secondsRemaining}s`

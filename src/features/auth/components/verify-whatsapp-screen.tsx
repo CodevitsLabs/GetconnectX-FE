@@ -8,6 +8,12 @@ import { ApiError } from '@shared/services/api';
 import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 
+const CANVAS_BG = '#212121';
+const ACCENT = '#FF9A3E';
+const FIELD_BORDER = '#383838';
+const TEXT_MUTED = '#98A2B3';
+const TEXT_SOFT = '#667085';
+
 function normalizeWhatsappNumber(value: string) {
   const trimmedValue = value.trim();
 
@@ -133,7 +139,8 @@ export function VerifyWhatsappScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-canvas"
+      className="flex-1"
+      style={{ backgroundColor: CANVAS_BG }}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
@@ -141,16 +148,21 @@ export function VerifyWhatsappScreen() {
 
           <View className="flex-row justify-end items-center h-12">
             <TouchableOpacity onPress={() => signOut()} className="py-2">
-              <AppText tone="muted" className="font-medium text-[15px]">Log out</AppText>
+              <AppText className="font-medium text-[15px]" style={{ color: TEXT_MUTED }}>
+                Log out
+              </AppText>
             </TouchableOpacity>
           </View>
 
           <View className="flex-1 pt-8">
             <View className="gap-2 shrink-0">
-              <AppText variant="hero" className="text-[32px] font-bold tracking-tight">
+              <AppText
+                variant="hero"
+                className="text-[32px] font-bold tracking-tight"
+                style={{ color: ACCENT }}>
                 Enter WhatsApp Number
               </AppText>
-              <AppText tone="muted" className="text-base">
+              <AppText className="text-base leading-6" style={{ color: TEXT_MUTED }}>
                 We&apos;ll send a 6-digit code to verify your identity.
               </AppText>
             </View>
@@ -167,8 +179,10 @@ export function VerifyWhatsappScreen() {
                 }}
                 placeholder="+62 812 3456 7890"
                 value={whatsappNumber}
-                className="bg-transparent border-0 border-b border-border rounded-none px-0 text-2xl h-16 min-h-16"
-                placeholderTextColor="#64748B"
+                className="rounded-none border-0 border-b px-0 text-2xl h-16 min-h-16 text-white"
+                placeholderTextColor={TEXT_SOFT}
+                shellClassName="gap-0"
+                style={{ backgroundColor: 'transparent', borderBottomColor: FIELD_BORDER }}
               />
             </View>
 
@@ -182,9 +196,10 @@ export function VerifyWhatsappScreen() {
                 label={isSendingOtp ? 'Sending...' : 'Continue'}
                 onPress={handleSendOtp}
                 size="lg"
-                className="w-full bg-[#0066FF] rounded-[16px] border-none"
+                className="w-full rounded-[18px] border-none"
+                style={{ backgroundColor: ACCENT }}
               />
-              <AppText align="center" tone="muted" className="mt-4 text-[13px]">
+              <AppText align="center" className="mt-4 text-[13px]" style={{ color: TEXT_SOFT }}>
                 By entering your number you agree to our Terms & Privacy Policy
               </AppText>
             </View>

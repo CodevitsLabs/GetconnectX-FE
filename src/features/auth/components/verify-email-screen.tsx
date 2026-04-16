@@ -1,14 +1,12 @@
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
 
-import { AppButton, AppInput, AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
 
 import { useAuth } from '../hooks/use-auth';
 import type { VerifyEmailErrorResponse } from '../types/auth.types';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
-import { AuthShell } from './auth-shell';
+import { AuthVerificationShell } from './auth-verification-shell';
 
 function getSecondsRemaining(timestamp: string | null | undefined) {
   if (!timestamp) {
@@ -156,109 +154,87 @@ export function VerifyEmailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false, title: 'Verify Email' }} />
-      <AuthShell
+      <AuthVerificationShell
+        actionLabel={isVerifying ? 'Verifying...' : 'Verify Email'}
+        codeError={otpError}
+        codeLabel="Verification Code"
+        codePlaceholder="Enter 6-character code"
         description={`Enter the code sent to ${session.email} to continue to WhatsApp verification.`}
-        pill="Verify Email"
-        title="Check your inbox">
-        <View className="flex-row justify-end -mt-2 mb-2">
-          <TouchableOpacity className="py-1 px-2" onPress={() => signOut()}>
-            <AppText className="font-medium text-[15px]" tone="muted">
-              Log out
-            </AppText>
-          </TouchableOpacity>
-        </View>
+        exitLabel="Log out"
+        footerNote="Next step: WhatsApp verification"
+        isActionDisabled={isVerifying || otpCode.trim().length !== 6}
+        onActionPress={async () => {
+          setIsVerifying(true);
+          setOtpError(null);
+          setStatusMessage(null);
+          setStatusTone('signal');
 
-        <View className="gap-4">
-          <AppInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            error={otpError ?? undefined}
-            hint="Enter the 6-character verification code"
-            label="Verification Code"
-            maxLength={6}
-            onChangeText={(value) => {
-              setOtpCode(value.slice(0, 6));
+          try {
+            const result = await verifyEmailOtp({ otp_code: otpCode.trim() });
 
-              if (otpError) {
-                setOtpError(null);
-              }
-            }}
-            placeholder="Enter code"
-            value={otpCode}
-          />
+            if (isHandledEmailOtpError(result.response)) {
+              setOtpError(result.response.errors.otp_code[0] ?? result.response.message);
+              setStatusMessage(result.response.message);
+              setStatusTone('danger');
+              return;
+            }
 
-          <AppButton
-            detail="Next step: WhatsApp verification"
-            disabled={isVerifying || otpCode.trim().length !== 6}
-            label={isVerifying ? 'Verifying...' : 'Verify Email'}
-            onPress={async () => {
-              setIsVerifying(true);
-              setOtpError(null);
-              setStatusMessage(null);
-              setStatusTone('signal');
+            setStatusMessage(result.response.message);
+            setStatusTone('signal');
+            router.replace('/verify-whatsapp');
+          } catch (error) {
+            if (error instanceof ApiError && error.payload && typeof error.payload === 'object') {
+              const payload = error.payload as { message?: string };
+              setStatusMessage(payload.message ?? error.message);
+            } else {
+              setStatusMessage(error instanceof Error ? error.message : 'Email verification failed.');
+            }
+            setStatusTone('danger');
+          } finally {
+            setIsVerifying(false);
+          }
+        }}
+        onCodeChange={(value) => {
+          setOtpCode(value.slice(0, 6));
 
-              try {
-                const result = await verifyEmailOtp({ otp_code: otpCode.trim() });
+          if (otpError) {
+            setOtpError(null);
+          }
+        }}
+        onExitPress={() => {
+          void signOut();
+        }}
+        onResendPress={async () => {
+          setIsSendingOtp(true);
+          setStatusMessage(null);
+          setStatusTone('signal');
 
-                if (isHandledEmailOtpError(result.response)) {
-                  setOtpError(result.response.errors.otp_code[0] ?? result.response.message);
-                  setStatusMessage(result.response.message);
-                  setStatusTone('danger');
-                  return;
-                }
-
-                setStatusMessage(result.response.message);
-                setStatusTone('signal');
-                router.replace('/verify-whatsapp');
-              } catch (error) {
-                if (error instanceof ApiError && error.payload && typeof error.payload === 'object') {
-                  const payload = error.payload as { message?: string };
-                  setStatusMessage(payload.message ?? error.message);
-                } else {
-                  setStatusMessage(
-                    error instanceof Error ? error.message : 'Email verification failed.'
-                  );
-                }
-                setStatusTone('danger');
-              } finally {
-                setIsVerifying(false);
-              }
-            }}
-            size="lg"
-          />
-
-          <AppButton
-            detail={secondsRemaining ? `Try again in ${secondsRemaining}s` : 'Request a new code'}
-            disabled={isSendingOtp || secondsRemaining > 0}
-            label={isSendingOtp ? 'Sending code...' : 'Resend Code'}
-            onPress={async () => {
-              setIsSendingOtp(true);
-              setStatusMessage(null);
-              setStatusTone('signal');
-
-              try {
-                const result = await resendEmailOtp();
-                setStatusTone(getEmailOtpMessageTone(result.response));
-                setStatusMessage(result.response.message);
-              } catch (error) {
-                setStatusTone('danger');
-                setStatusMessage(
-                  error instanceof Error ? error.message : 'Failed to resend verification code.'
-                );
-              } finally {
-                setIsSendingOtp(false);
-              }
-            }}
-            variant="secondary"
-          />
-
-          {statusMessage ? (
-            <AppText selectable tone={statusTone}>
-              {statusMessage}
-            </AppText>
-          ) : null}
-        </View>
-      </AuthShell>
+          try {
+            const result = await resendEmailOtp();
+            setStatusTone(getEmailOtpMessageTone(result.response));
+            setStatusMessage(result.response.message);
+          } catch (error) {
+            setStatusTone('danger');
+            setStatusMessage(
+              error instanceof Error ? error.message : 'Failed to resend verification code.'
+            );
+          } finally {
+            setIsSendingOtp(false);
+          }
+        }}
+        resendDisabled={isSendingOtp || secondsRemaining > 0}
+        resendLabel={
+          isSendingOtp
+            ? 'Sending...'
+            : secondsRemaining > 0
+              ? `Resend in ${secondsRemaining}s`
+              : 'Resend code'
+        }
+        statusMessage={statusMessage}
+        statusTone={statusTone}
+        title="Check your inbox"
+        codeValue={otpCode}
+      />
     </>
   );
 }
