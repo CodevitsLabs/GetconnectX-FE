@@ -16,6 +16,7 @@ import {
 import { isAuthBypassEnabled } from '../config/auth-config';
 import type { LoginPayload } from '../services/auth-service';
 import {
+  bootstrapLinkedInAuthSession,
   clearPersistedAuth,
   createOAuthAuthSessionFromSupabaseSession,
   enterWithDevBypassSession,
@@ -23,7 +24,6 @@ import {
   getStoredToken,
   loginWithApi,
   loginWithGoogleApi,
-  loginWithLinkedInApi,
   registerWithApi,
   replaceStoredSession,
   resendEmailOtp as resendEmailOtpRequest,
@@ -66,7 +66,8 @@ type AuthContextValue = {
   sendEmailOtp: () => ReturnType<typeof sendEmailOtpRequest>;
   sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpRequest>;
   signInWithGoogle: (payload?: { fcmToken?: string | null }) => ReturnType<typeof loginWithGoogleApi>;
-  signInWithLinkedIn: (payload?: { fcmToken?: string | null }) => ReturnType<typeof loginWithLinkedInApi>;
+  signInWithLinkedIn: (payload?: { fcmToken?: string | null }) => ReturnType<typeof bootstrapLinkedInAuthSession>;
+  bootstrapLinkedInCallback: (payload: Parameters<typeof bootstrapLinkedInAuthSession>[0]) => ReturnType<typeof bootstrapLinkedInAuthSession>;
   signOut: () => Promise<void>;
   verifyLoginOtp: (payload: LoginOtpVerifyPayload) => ReturnType<typeof verifyLoginOtpRequest>;
   verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpRequest>;
@@ -457,18 +458,22 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     return result;
   }, []);
 
+  const bootstrapLinkedInCallback = React.useCallback(
+    async (payload: Parameters<typeof bootstrapLinkedInAuthSession>[0]) => {
+      const result = await bootstrapLinkedInAuthSession(payload);
+      setSession(result.session);
+      setAuthPhase(result.session.authPhase);
+
+      return result;
+    },
+    []
+  );
+
   const signInWithLinkedIn = React.useCallback(async (payload?: { fcmToken?: string | null }) => {
+    void payload;
     const linkedInResult = await signInWithLinkedInToken();
-    const result = await loginWithLinkedInApi({
-      providerToken: linkedInResult.providerToken,
-      fcmToken: payload?.fcmToken ?? '',
-    });
-
-    setSession(result.session);
-    setAuthPhase(result.session.authPhase);
-
-    return result;
-  }, []);
+    return bootstrapLinkedInCallback(linkedInResult);
+  }, [bootstrapLinkedInCallback]);
 
   const register = React.useCallback(
     async (payload: RegisterPayload) => {
@@ -552,6 +557,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const value = React.useMemo<AuthContextValue>(
     () => ({
       authPhase,
+      bootstrapLinkedInCallback,
       completeOnboarding,
       enterWithDevBypass,
       enterPendingOnboarding,
@@ -577,6 +583,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     [
       authPhase,
       authBypassEnabled,
+      bootstrapLinkedInCallback,
       completeOnboarding,
       enterWithDevBypass,
       enterPendingOnboarding,

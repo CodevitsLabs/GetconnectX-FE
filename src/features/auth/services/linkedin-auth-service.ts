@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import type { LinkedInAuthResult } from '../types/auth.types';
+import type { LinkedInAuthResult, LinkedInCallbackNextStep } from '../types/auth.types';
 
 const LINKEDIN_CALLBACK_HOST = 'auth';
 const LINKEDIN_CALLBACK_ROUTE = 'linkedin-callback';
@@ -9,8 +9,14 @@ const LINKEDIN_CALLBACK_PATH = `${LINKEDIN_CALLBACK_HOST}/${LINKEDIN_CALLBACK_RO
 
 type LinkedInCallbackPayload =
   | { type: 'error'; message: string }
+  | { type: 'missing_next_step' }
   | { type: 'missing_token' }
-  | { type: 'success'; providerToken: string }
+  | {
+    type: 'success';
+    token: string;
+    nextStep: LinkedInCallbackNextStep;
+    supabaseToken: string | null;
+  }
   | { type: 'unexpected' };
 
 function normalizeLinkedInCallbackPath(path?: string | null) {
@@ -23,6 +29,10 @@ function getNormalizedLinkedInCallbackParam(value: unknown) {
   }
 
   return typeof value === 'string' ? value.trim() || null : null;
+}
+
+function isLinkedInCallbackNextStep(value: string | null): value is LinkedInCallbackNextStep {
+  return value === 'LOGIN_SUCCESS' || value === 'NEED_WHATSAPP_VERIFICATION';
 }
 
 function getLinkedInCallbackPayload(url: string): LinkedInCallbackPayload {
@@ -38,6 +48,8 @@ function getLinkedInCallbackPayload(url: string): LinkedInCallbackPayload {
   }
 
   const token = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.token);
+  const nextStep = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.next_step);
+  const supabaseToken = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.supabase_token);
   const errorMessage = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.message);
   const errorCode = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.error);
 
@@ -52,9 +64,15 @@ function getLinkedInCallbackPayload(url: string): LinkedInCallbackPayload {
     return { type: 'missing_token' };
   }
 
+  if (!isLinkedInCallbackNextStep(nextStep)) {
+    return { type: 'missing_next_step' };
+  }
+
   return {
     type: 'success',
-    providerToken: token,
+    token,
+    nextStep,
+    supabaseToken,
   };
 }
 
@@ -100,8 +118,14 @@ export async function signInWithLinkedInToken(): Promise<LinkedInAuthResult> {
     throw new Error('LinkedIn sign-in completed, but no callback token was returned.');
   }
 
+  if (callbackPayload.type === 'missing_next_step') {
+    throw new Error('LinkedIn sign-in completed, but no callback next step was returned.');
+  }
+
   return {
-    providerToken: callbackPayload.providerToken,
     provider: 'linkedin',
+    token: callbackPayload.token,
+    nextStep: callbackPayload.nextStep,
+    supabaseToken: callbackPayload.supabaseToken,
   };
 }

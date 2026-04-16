@@ -108,9 +108,16 @@ export type GoogleAuthResult = {
   userId: string;
 };
 
+export type LinkedInCallbackNextStep = Extract<
+  AuthNextStep,
+  'LOGIN_SUCCESS' | 'NEED_WHATSAPP_VERIFICATION'
+>;
+
 export type LinkedInAuthResult = {
-  providerToken: string;
   provider: 'linkedin';
+  token: string;
+  nextStep: LinkedInCallbackNextStep;
+  supabaseToken?: string | null;
 };
 
 export type OtpMessageResponse = {

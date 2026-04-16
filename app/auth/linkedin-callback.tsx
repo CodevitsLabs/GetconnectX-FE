@@ -13,27 +13,34 @@ function getSingleParam(value: string | string[] | undefined) {
 
 export default function LinkedInCallbackRoute() {
   const router = useRouter();
-  const { authPhase, isHydrated, session } = useAuth();
+  const { authPhase, bootstrapLinkedInCallback, isHydrated, session } = useAuth();
   const params = useLocalSearchParams<{
     error?: string | string[];
     message?: string | string[];
+    next_step?: string | string[];
+    supabase_token?: string | string[];
     token?: string | string[];
   }>();
+  const hasHandledCallback = React.useRef(false);
   const callbackError = getSingleParam(params.error);
   const callbackMessage = getSingleParam(params.message);
+  const callbackNextStep = getSingleParam(params.next_step);
+  const callbackSupabaseToken = getSingleParam(params.supabase_token);
   const callbackToken = getSingleParam(params.token);
 
   React.useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || hasHandledCallback.current) {
       return;
     }
 
     if (session) {
+      hasHandledCallback.current = true;
       router.replace(getRouteForAuthPhase(authPhase));
       return;
     }
 
     if (callbackError || callbackMessage) {
+      hasHandledCallback.current = true;
       router.replace({
         pathname: '/login',
         params: {
@@ -44,19 +51,56 @@ export default function LinkedInCallbackRoute() {
       return;
     }
 
-    const timeout = setTimeout(() => {
-      router.replace({
-        pathname: '/login',
-        params: {
-          linkedin_message: callbackToken
-            ? 'LinkedIn sign-in is taking longer than expected. Please try again.'
-            : 'LinkedIn sign-in returned an unexpected callback.',
-        },
-      });
-    }, 4000);
+    if (
+      callbackToken &&
+      (callbackNextStep === 'LOGIN_SUCCESS' || callbackNextStep === 'NEED_WHATSAPP_VERIFICATION')
+    ) {
+      hasHandledCallback.current = true;
 
-    return () => clearTimeout(timeout);
-  }, [authPhase, callbackError, callbackMessage, callbackToken, isHydrated, router, session]);
+      void bootstrapLinkedInCallback({
+        provider: 'linkedin',
+        token: callbackToken,
+        nextStep: callbackNextStep,
+        supabaseToken: callbackSupabaseToken,
+      })
+        .then((result) => {
+          router.replace(getRouteForAuthPhase(result.session.authPhase));
+        })
+        .catch((error) => {
+          router.replace({
+            pathname: '/login',
+            params: {
+              linkedin_error: 'oauth_failed',
+              linkedin_message:
+                error instanceof Error
+                  ? error.message
+                  : 'LinkedIn sign-in failed. Please try again.',
+            },
+          });
+        });
+
+      return;
+    }
+
+    hasHandledCallback.current = true;
+    router.replace({
+      pathname: '/login',
+      params: {
+        linkedin_message: 'LinkedIn sign-in returned an unexpected callback.',
+      },
+    });
+  }, [
+    authPhase,
+    bootstrapLinkedInCallback,
+    callbackError,
+    callbackMessage,
+    callbackNextStep,
+    callbackSupabaseToken,
+    callbackToken,
+    isHydrated,
+    router,
+    session,
+  ]);
 
   if (isHydrated && session) {
     return <Redirect href={getRouteForAuthPhase(authPhase)} />;

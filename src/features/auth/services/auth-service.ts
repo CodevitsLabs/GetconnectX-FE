@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { ApiError, apiFetch } from '@shared/services/api';
 import {
+  getStoredSupabaseIdentity,
   setStoredSupabaseAccessToken,
   setSupabaseRealtimeToken,
   setSupabaseSession,
@@ -39,6 +40,7 @@ import type {
   OtpMessageResponse,
   OtpRateLimitResponse,
   RegisterPayload,
+  LinkedInAuthResult,
   VerifyEmailErrorResponse,
   VerifyEmailPayload,
   VerifyEmailSuccessResponse,
@@ -58,7 +60,6 @@ const AUTH_API = {
   EMAIL_RESEND_OTP: '/api/v1/auth/email/resend-otp',
   EMAIL_SEND_OTP: '/api/v1/auth/email/send-otp',
   GOOGLE_OAUTH_VERIFY: '/api/v1/auth/oauth/google/verify-token',
-  LINKEDIN_OAUTH_VERIFY: '/api/v1/auth/oauth/linkedin/verify-token',
   LOGIN: '/api/v1/auth/login/password',
   LOGIN_OTP_SEND: '/api/v1/auth/login/otp/send',
   LOGIN_OTP_VERIFY: '/api/v1/auth/login/otp/verify',
@@ -110,17 +111,6 @@ export type GoogleOAuthLoginPayload = {
 export type GoogleSupabaseLoginResponse = AuthSuccessResponse & {
   data: AuthSuccessResponse['data'] & {
     oauth_provider: 'google';
-  };
-};
-
-export type LinkedInOAuthLoginPayload = {
-  providerToken: string;
-  fcmToken?: string | null;
-};
-
-export type LinkedInOAuthVerifyResponse = AuthSuccessResponse & {
-  data: AuthSuccessResponse['data'] & {
-    oauth_provider?: 'linkedin';
   };
 };
 
@@ -195,7 +185,7 @@ function isStoredSessionShape(value: unknown): value is AuthSession {
 
 function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
   if (nextStep === 'LOGIN_SUCCESS') {
-    return user.is_onboarded === false ? 'authenticated' : 'authenticated'
+    return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated'
   }
 
   if (nextStep === 'NEED_LOGIN_OTP') {
@@ -310,6 +300,60 @@ function createOAuthFallbackUser(user: SupabaseUser): AuthUser {
     is_active: true,
     is_onboarded: true,
   };
+}
+
+function createLinkedInPendingWhatsappSession(): AuthSession {
+  return {
+    authPhase: 'pending_whatsapp_verification',
+    displayName: 'ConnectX Member',
+    email: 'connectx-member@linkedin.local',
+    emailOtpCode: null,
+    emailOtpExpiresAt: null,
+    emailOtpLastSentAt: null,
+    emailOtpResendAvailableAt: null,
+    loginOtpCode: null,
+    loginOtpExpiresAt: null,
+    loginOtpLastSentAt: null,
+    loginOtpResendAvailableAt: null,
+    method: 'linkedin',
+    onboardingCompletedAt: null,
+    pendingWhatsappNumber: null,
+    shouldAutoSendEmailOtp: false,
+    shouldAutoSendLoginOtp: false,
+    user: null,
+    whatsappOtpLastSentAt: null,
+    whatsappOtpResendAvailableAt: null,
+  };
+}
+
+function createLinkedInAuthenticatedUser(identity: Awaited<ReturnType<typeof getStoredSupabaseIdentity>>) {
+  const now = new Date().toISOString();
+  const normalizedEmail = normalizeEmail(identity?.email ?? 'connectx-member@linkedin.local');
+
+  return {
+    id: identity?.userId ?? 'linkedin-callback',
+    entity_type: null,
+    email: normalizedEmail,
+    email_verified_at: now,
+    whatsapp_number: null,
+    whatsapp_verified_at: now,
+    registration_step: 5,
+    is_active: true,
+    is_onboarded: true,
+  } satisfies AuthUser;
+}
+
+function createLinkedInAuthenticatedSession(
+  identity: Awaited<ReturnType<typeof getStoredSupabaseIdentity>>
+): AuthSession {
+  const user = createLinkedInAuthenticatedUser(identity);
+
+  return createAuthSession({
+    displayName: identity?.displayName ?? null,
+    method: 'linkedin',
+    nextStep: 'LOGIN_SUCCESS',
+    user,
+  });
 }
 
 function withEmailOtpSession(
@@ -691,18 +735,6 @@ async function verifyGoogleOAuthWithApi(
   });
 }
 
-async function verifyLinkedInOAuthWithApi(
-  payload: LinkedInOAuthLoginPayload
-): Promise<LinkedInOAuthVerifyResponse> {
-  return apiFetch<LinkedInOAuthVerifyResponse>(AUTH_API.LINKEDIN_OAUTH_VERIFY, {
-    method: 'POST',
-    body: {
-      fcm_token: payload.fcmToken ?? '',
-      provider_token: payload.providerToken,
-    } as any,
-  });
-}
-
 export async function loginWithGoogleApi(
   payload: GoogleOAuthLoginPayload
 ): Promise<SessionActionResult<GoogleOAuthVerifyResponse>> {
@@ -731,31 +763,58 @@ export async function loginWithGoogleApi(
   };
 }
 
-export async function loginWithLinkedInApi(
-  payload: LinkedInOAuthLoginPayload
-): Promise<SessionActionResult<LinkedInOAuthVerifyResponse>> {
-  const response = await verifyLinkedInOAuthWithApi(payload);
-  const token = response.token.trim();
+export async function bootstrapLinkedInAuthSession(
+  payload: LinkedInAuthResult
+): Promise<SessionActionResult<LinkedInAuthResult>> {
+  const token = payload.token.trim();
 
   if (!token) {
-    throw new Error('LinkedIn login succeeded, but no API token was returned.');
+    throw new Error('LinkedIn sign-in completed, but no backend token was returned.');
   }
 
-  const session = createAuthSession({
-    method: 'linkedin',
-    nextStep: response.next_step,
-    user: response.data.user,
-  });
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 
-  await Promise.all([
-    persistAuthSession(session, token),
-    applySupabaseAuthResponse(response),
-  ]);
+  try {
+    if (payload.nextStep === 'NEED_WHATSAPP_VERIFICATION') {
+      const session = createLinkedInPendingWhatsappSession();
 
-  return {
-    response,
-    session,
-  };
+      await persistAuthSession(session, token);
+
+      return {
+        response: payload,
+        session,
+      };
+    }
+
+    const supabaseToken = payload.supabaseToken?.trim() || null;
+
+    if (!supabaseToken) {
+      throw new Error('LinkedIn sign-in completed, but no Supabase token was returned.');
+    }
+
+    await setSupabaseRealtimeToken(supabaseToken);
+
+    const storedSupabaseIdentity = await getStoredSupabaseIdentity();
+    const session = createLinkedInAuthenticatedSession(storedSupabaseIdentity);
+    const response: LinkedInAuthResult = {
+      ...payload,
+      supabaseToken,
+    };
+
+    await persistAuthSession(session, token);
+
+    return {
+      response,
+      session,
+    };
+  } catch (error) {
+    await Promise.allSettled([
+      clearPersistedAuth(),
+      setSupabaseRealtimeToken(null),
+    ]);
+
+    throw error;
+  }
 }
 
 export async function loginWithApi(
