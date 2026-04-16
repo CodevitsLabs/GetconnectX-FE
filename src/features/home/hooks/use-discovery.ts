@@ -64,14 +64,17 @@ function removeCardFromPages(
 
 export function useDiscoveryCards(
   request: Omit<DiscoveryCardsRequest, 'pagination'> = {},
-  limit = DEFAULT_LIMIT
+  limit = DEFAULT_LIMIT,
+  enabled = true
 ) {
   const normalizedLimit = normalizeLimit(limit);
   const usingMockCards = isDiscoveryCardsMockEnabled();
+  const shouldSeedMockData = usingMockCards && enabled;
 
   return useInfiniteQuery({
+    enabled,
     initialPageParam: undefined as string | undefined,
-    initialData: usingMockCards
+    initialData: shouldSeedMockData
       ? {
         pageParams: [undefined as string | undefined],
         pages: [getMockDiscoveryCardsResponse(normalizedLimit, undefined, request)],
@@ -86,7 +89,7 @@ export function useDiscoveryCards(
       }),
     getNextPageParam: (lastPage) =>
       lastPage.data.hasMore ? (lastPage.data.nextCursor ?? undefined) : undefined,
-    staleTime: usingMockCards ? Number.POSITIVE_INFINITY : 0,
+    staleTime: shouldSeedMockData ? Number.POSITIVE_INFINITY : 0,
   });
 }
 

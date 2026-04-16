@@ -1,6 +1,6 @@
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Redirect, Stack, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +32,14 @@ const FIELD_BG = '#292929';
 const FIELD_BORDER = '#383838';
 const TEXT_MUTED = '#98A2B3';
 const TEXT_SOFT = '#667085';
+
+function getSingleSearchParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return getSingleSearchParam(value[0]);
+  }
+
+  return typeof value === 'string' ? value.trim() || null : null;
+}
 
 type DarkFieldProps = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
@@ -180,6 +188,10 @@ export function LoginScreen() {
   const router = useRouter();
   const { authPhase, isHydrated, login, session, signInWithGoogle, signInWithLinkedIn } =
     useAuth();
+  const searchParams = useLocalSearchParams<{
+    linkedin_error?: string | string[];
+    linkedin_message?: string | string[];
+  }>();
   const fcmToken = useFcmToken();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -191,6 +203,28 @@ export function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = React.useState(false);
   const [isLinkedInSubmitting, setIsLinkedInSubmitting] = React.useState(false);
+  const linkedInErrorMessage = React.useMemo(
+    () =>
+      getSingleSearchParam(searchParams.linkedin_message) ??
+      (getSingleSearchParam(searchParams.linkedin_error)
+        ? 'LinkedIn sign-in failed. Please try again.'
+        : null),
+    [searchParams.linkedin_error, searchParams.linkedin_message]
+  );
+  const hasAppliedLinkedInCallback = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!linkedInErrorMessage || hasAppliedLinkedInCallback.current) {
+      return;
+    }
+
+    hasAppliedLinkedInCallback.current = true;
+    setStatusMessage(linkedInErrorMessage);
+    router.setParams({
+      linkedin_error: undefined,
+      linkedin_message: undefined,
+    });
+  }, [linkedInErrorMessage, router]);
 
   if (!isHydrated) {
     return null;
@@ -256,7 +290,9 @@ export function LoginScreen() {
     setIsGoogleSubmitting(true);
 
     try {
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle({
+        fcmToken,
+      });
       router.replace(getRouteForAuthPhase(result.session.authPhase));
     } catch (error) {
       setStatusMessage(
@@ -278,7 +314,9 @@ export function LoginScreen() {
     setIsLinkedInSubmitting(true);
 
     try {
-      const result = await signInWithLinkedIn();
+      const result = await signInWithLinkedIn({
+        fcmToken,
+      });
       router.replace(getRouteForAuthPhase(result.session.authPhase));
     } catch (error) {
       setStatusMessage(

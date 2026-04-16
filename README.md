@@ -148,6 +148,9 @@ EXPO_PUBLIC_MOCK_MATCHES_LIST_RESPONSE=success
 EXPO_PUBLIC_MOCK_DISCOVERY_REWIND_RESPONSE=off
 EXPO_PUBLIC_MOCK_SUPERLIKE_NO_BOOST=false
 EXPO_PUBLIC_MOCK_SPOTLIGHT_ACTIVATION_RESPONSE=off
+EXPO_PUBLIC_REVENUECAT_ENABLED=false
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=goog_...
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_...
 EXPO_PUBLIC_REVENUECAT_DISCOVERY_BOOSTS_OFFERING_ID=discovery_boosts
 EXPO_PUBLIC_REVENUECAT_DISCOVERY_SPOTLIGHT_OFFERING_ID=discovery_spotlight
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
@@ -163,6 +166,15 @@ different identifier than `discovery_boosts`.
 
 Set `EXPO_PUBLIC_REVENUECAT_DISCOVERY_SPOTLIGHT_OFFERING_ID` if your spotlight paywall offering
 uses a different identifier than `discovery_spotlight`.
+
+Set `EXPO_PUBLIC_REVENUECAT_ENABLED=false` to completely skip RevenueCat initialization for a build.
+When you are ready to ship purchases, switch it back to `true` and provide the real `goog_...`
+or `appl_...` public SDK key for that platform.
+
+RevenueCat release builds should use the platform public SDK keys from your RevenueCat project
+such as `goog_...` for Android and `appl_...` for iOS. If no real SDK key is configured, or if a
+release build is still pointed at a `test_...` key, the app now leaves RevenueCat disabled instead
+of trying to initialize the purchase SDK and crashing at runtime.
 
 Set `EXPO_PUBLIC_MOCK_MATCHES_LIST_RESPONSE=success` in development to render the typed mock
 matches list response while the backend endpoint is not ready yet.

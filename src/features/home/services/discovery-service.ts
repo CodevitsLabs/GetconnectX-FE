@@ -139,12 +139,18 @@ function buildDiscoveryCardsPayload({
 }
 
 export async function fetchDiscoveryCards(input: DiscoveryCardFeedInput = {}) {
+  const payload = buildDiscoveryCardsPayload(input);
+
+  if (__DEV__) {
+    console.log('[Discovery] fetch cards payload', payload);
+  }
+
   if (isDiscoveryCardsMockEnabled()) {
     return getMockDiscoveryCardsResponse(input.limit, input.cursor, input.request);
   }
 
   return apiFetch<DiscoveryCardsResponse>(DISCOVERY_API.CARDS, {
-    body: buildDiscoveryCardsPayload(input) as unknown as BodyInit,
+    body: payload as unknown as BodyInit,
     method: 'POST',
   });
 }

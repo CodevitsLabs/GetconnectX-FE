@@ -902,6 +902,7 @@ export function DiscoveryDeck() {
   const [appliedMode, setAppliedMode] = React.useState<DiscoveryMode | null>(null);
   const [appliedFilters, setAppliedFilters] = React.useState<DiscoveryAppliedFilters>({});
   const [deviceCoordinates, setDeviceCoordinates] = React.useState<DeviceCoordinates | null>(null);
+  const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = React.useState(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const nextCardScale = useSharedValue(0.96);
@@ -951,7 +952,11 @@ export function DiscoveryDeck() {
     };
   }, [appliedMode, requestFilters]);
 
-  const discoveryQuery = useDiscoveryCards(discoveryRequest, DISCOVERY_PAGE_LIMIT);
+  const discoveryQuery = useDiscoveryCards(
+    discoveryRequest,
+    DISCOVERY_PAGE_LIMIT,
+    hasResolvedInitialLocation
+  );
   const rewindAction = useRewindAction();
   const swipeAction = useSwipeAction();
 
@@ -1008,8 +1013,22 @@ export function DiscoveryDeck() {
     }
 
     hasRequestedDeviceCoordinatesRef.current = true;
-    void loadDeviceCoordinates(true);
+    void (async () => {
+      try {
+        await loadDeviceCoordinates(true);
+      } finally {
+        setHasResolvedInitialLocation(true);
+      }
+    })();
   }, [loadDeviceCoordinates]);
+
+  React.useEffect(() => {
+    if (!hasResolvedInitialLocation) {
+      return;
+    }
+
+    console.log('[DiscoveryDeck] request payload on enter/update', discoveryRequest);
+  }, [discoveryRequest, hasResolvedInitialLocation]);
 
 
   const liveCards = React.useMemo(() => flattenUniqueCards(discoveryQuery.data), [discoveryQuery.data]);

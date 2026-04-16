@@ -1,7 +1,11 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { ApiError, apiFetch, getApiAccessToken } from '@shared/services/api';
-import { getSupabaseSession, supabase } from '@shared/services/supabase/client';
+import {
+  getStoredSupabaseIdentity,
+  getSupabaseSession,
+  supabaseData,
+} from '@shared/services/supabase/client';
 
 import type { ChatRepository } from '../../domain/ChatRepository';
 import type {
@@ -216,24 +220,36 @@ function prepareMessageInput(input: SendMessageInput): PreparedMessageInput {
 async function getCurrentIdentity() {
   const session = await getSupabaseSession();
 
-  if (!session?.user) {
-    throw new Error('Supabase chat requires an authenticated Google session.');
+  if (session?.user) {
+    const email = session.user.email?.trim().toLowerCase() ?? 'connectx-member';
+    const displayName =
+      (typeof session.user.user_metadata?.full_name === 'string'
+        ? session.user.user_metadata.full_name.trim()
+        : '') ||
+      (typeof session.user.user_metadata?.name === 'string'
+        ? session.user.user_metadata.name.trim()
+        : '') ||
+      email.split('@')[0] ||
+      'ConnectX Member';
+
+    return {
+      displayName,
+      userId: session.user.id,
+    };
   }
 
-  const email = session.user.email?.trim().toLowerCase() ?? 'connectx-member';
-  const displayName =
-    (typeof session.user.user_metadata?.full_name === 'string'
-      ? session.user.user_metadata.full_name.trim()
-      : '') ||
-    (typeof session.user.user_metadata?.name === 'string'
-      ? session.user.user_metadata.name.trim()
-      : '') ||
-    email.split('@')[0] ||
-    'ConnectX Member';
+  const storedIdentity = await getStoredSupabaseIdentity();
+
+  if (!storedIdentity) {
+    throw new Error('Supabase chat requires an authenticated session.');
+  }
 
   return {
-    displayName,
-    userId: session.user.id,
+    displayName:
+      storedIdentity.displayName ||
+      storedIdentity.email?.split('@')[0] ||
+      'ConnectX Member',
+    userId: storedIdentity.userId,
   };
 }
 
@@ -243,7 +259,7 @@ class SupabaseChatRepository implements ChatRepository {
 
   async clearRealtimeSubscriptions() {
     try {
-      await supabase.removeAllChannels();
+      await supabaseData.removeAllChannels();
     } finally {
       this.roomStates.clear();
       this.summaryStates.clear();
@@ -270,13 +286,13 @@ class SupabaseChatRepository implements ChatRepository {
   async getConversationSummaries(): Promise<ChatRoom[]> {
     const { userId } = await getCurrentIdentity();
 
-    let summaryQuery = await supabase
+    let summaryQuery = await supabaseData
       .from('conversation_summaries')
       .select(CONVERSATION_SUMMARY_COLUMNS)
       .eq('user_id', userId);
 
     if (summaryQuery.error && isMissingWhatsappColumnError(summaryQuery.error)) {
-      summaryQuery = await supabase
+      summaryQuery = await supabaseData
         .from('conversation_summaries')
         .select(LEGACY_CONVERSATION_SUMMARY_COLUMNS)
         .eq('user_id', userId);
@@ -294,7 +310,7 @@ class SupabaseChatRepository implements ChatRepository {
   }
 
   async getMessages(roomId: string, cursor?: string): Promise<PaginatedMessages> {
-    let query = supabase
+    let query = supabaseData
       .from('messages')
       .select(
         'id, room_id, sender_id, client_id, content, created_at, media_mime_type, media_name, media_size_bytes, media_url, message_type, thumbnail_url'
@@ -434,7 +450,7 @@ class SupabaseChatRepository implements ChatRepository {
   private async sendMessageDirectlyToSupabase(input: PreparedMessageInput): Promise<ChatMessage> {
     const { userId } = await getCurrentIdentity();
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseData
       .from('messages')
       .insert({
         client_id: input.clientId ?? null,
@@ -497,7 +513,7 @@ class SupabaseChatRepository implements ChatRepository {
   }
 
   async markConversationRead(conversationId: string) {
-    const { error } = await supabase.rpc('mark_conversation_read', {
+    const { error } = await supabaseData.rpc('mark_conversation_read', {
       conversation_uuid: conversationId,
     });
 
@@ -605,7 +621,7 @@ class SupabaseChatRepository implements ChatRepository {
       return;
     }
 
-    void supabase.removeChannel(roomState.channel);
+    void supabaseData.removeChannel(roomState.channel);
     this.roomStates.delete(roomId);
   }
 
@@ -626,15 +642,15 @@ class SupabaseChatRepository implements ChatRepository {
   private createRoomState(roomId: string, previousState?: RoomChannelState) {
     const deferred = createDeferred();
     const roomTopic = createRoomTopic(roomId);
-    const staleChannels = supabase
+    const staleChannels = supabaseData
       .getChannels()
       .filter((channel) => channel.topic === `realtime:${roomTopic}`);
 
     for (const staleChannel of staleChannels) {
-      void supabase.removeChannel(staleChannel);
+      void supabaseData.removeChannel(staleChannel);
     }
 
-    const channel = supabase.channel(roomTopic, {
+    const channel = supabaseData.channel(roomTopic, {
       config: {
         broadcast: { self: true },
       },
@@ -721,7 +737,7 @@ class SupabaseChatRepository implements ChatRepository {
     if (currentState) {
       currentState.handlers.clear();
       currentState.presenceHandlers.clear();
-      void supabase.removeChannel(currentState.channel);
+      void supabaseData.removeChannel(currentState.channel);
       this.roomStates.delete(roomId);
     }
 
@@ -739,7 +755,7 @@ class SupabaseChatRepository implements ChatRepository {
       return;
     }
 
-    void supabase.removeChannel(summaryState.channel);
+    void supabaseData.removeChannel(summaryState.channel);
     this.summaryStates.delete(userId);
   }
 
@@ -763,15 +779,15 @@ class SupabaseChatRepository implements ChatRepository {
   ) {
     const deferred = createDeferred();
     const channelName = `conversation-summaries:${userId}`;
-    const staleChannels = supabase
+    const staleChannels = supabaseData
       .getChannels()
       .filter((channel) => channel.topic === `realtime:${channelName}`);
 
     for (const staleChannel of staleChannels) {
-      void supabase.removeChannel(staleChannel);
+      void supabaseData.removeChannel(staleChannel);
     }
 
-    const channel = supabase.channel(channelName);
+    const channel = supabaseData.channel(channelName);
     const summaryState: SummaryChannelState = {
       channel,
       handlers: new Set(previousState?.handlers ?? []),
@@ -829,7 +845,7 @@ class SupabaseChatRepository implements ChatRepository {
 
     if (currentState) {
       currentState.handlers.clear();
-      void supabase.removeChannel(currentState.channel);
+      void supabaseData.removeChannel(currentState.channel);
       this.summaryStates.delete(userId);
     }
 

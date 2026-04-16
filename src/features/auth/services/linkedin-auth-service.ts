@@ -7,11 +7,25 @@ const LINKEDIN_CALLBACK_HOST = 'auth';
 const LINKEDIN_CALLBACK_ROUTE = 'linkedin-callback';
 const LINKEDIN_CALLBACK_PATH = `${LINKEDIN_CALLBACK_HOST}/${LINKEDIN_CALLBACK_ROUTE}`;
 
+type LinkedInCallbackPayload =
+  | { type: 'error'; message: string }
+  | { type: 'missing_token' }
+  | { type: 'success'; providerToken: string }
+  | { type: 'unexpected' };
+
 function normalizeLinkedInCallbackPath(path?: string | null) {
   return (path ?? '').replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
-function getLinkedInCallbackToken(url: string) {
+function getNormalizedLinkedInCallbackParam(value: unknown) {
+  if (Array.isArray(value)) {
+    return getNormalizedLinkedInCallbackParam(value[0]);
+  }
+
+  return typeof value === 'string' ? value.trim() || null : null;
+}
+
+function getLinkedInCallbackPayload(url: string): LinkedInCallbackPayload {
   const parsedUrl = Linking.parse(url);
   const normalizedPath = normalizeLinkedInCallbackPath(parsedUrl.path);
   const normalizedHost = parsedUrl.hostname?.trim().toLowerCase() ?? '';
@@ -20,12 +34,28 @@ function getLinkedInCallbackToken(url: string) {
     (normalizedHost === LINKEDIN_CALLBACK_HOST && normalizedPath === LINKEDIN_CALLBACK_ROUTE);
 
   if (!matchesCallbackRoute) {
-    return undefined;
+    return { type: 'unexpected' };
   }
 
-  const token = parsedUrl.queryParams?.token;
+  const token = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.token);
+  const errorMessage = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.message);
+  const errorCode = getNormalizedLinkedInCallbackParam(parsedUrl.queryParams?.error);
 
-  return typeof token === 'string' ? token.trim() || null : null;
+  if (errorCode || errorMessage) {
+    return {
+      type: 'error',
+      message: errorMessage ?? 'LinkedIn sign-in failed. Please try again.',
+    };
+  }
+
+  if (!token) {
+    return { type: 'missing_token' };
+  }
+
+  return {
+    type: 'success',
+    providerToken: token,
+  };
 }
 
 export async function signInWithLinkedInToken(): Promise<LinkedInAuthResult> {
@@ -46,7 +76,7 @@ export async function signInWithLinkedInToken(): Promise<LinkedInAuthResult> {
   }
 
   const parsedUrl = Linking.parse(result.url);
-  const token = getLinkedInCallbackToken(result.url);
+  const callbackPayload = getLinkedInCallbackPayload(result.url);
 
   if (__DEV__) {
     console.log('[linkedin] callback url', result.url);
@@ -55,19 +85,23 @@ export async function signInWithLinkedInToken(): Promise<LinkedInAuthResult> {
       path: parsedUrl.path ?? null,
       queryParams: parsedUrl.queryParams ?? null,
     });
-    console.log('[linkedin] extracted provider token', token);
+    console.log('[linkedin] extracted callback payload', callbackPayload);
   }
 
-  if (token === undefined) {
+  if (callbackPayload.type === 'unexpected') {
     throw new Error('LinkedIn sign-in returned an unexpected callback URL.');
   }
 
-  if (!token) {
+  if (callbackPayload.type === 'error') {
+    throw new Error(callbackPayload.message);
+  }
+
+  if (callbackPayload.type === 'missing_token') {
     throw new Error('LinkedIn sign-in completed, but no callback token was returned.');
   }
 
   return {
-    providerToken: token,
+    providerToken: callbackPayload.providerToken,
     provider: 'linkedin',
   };
 }

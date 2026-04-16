@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { ApiError, apiFetch } from '@shared/services/api';
 import {
+  setStoredSupabaseAccessToken,
   setSupabaseRealtimeToken,
   setSupabaseSession,
 } from '@shared/services/supabase/client';
@@ -194,7 +195,7 @@ function isStoredSessionShape(value: unknown): value is AuthSession {
 
 function resolveAuthPhase(user: AuthUser, nextStep?: AuthNextStep): AuthPhase {
   if (nextStep === 'LOGIN_SUCCESS') {
-    return user.is_onboarded === false ? 'pending_onboarding' : 'authenticated'
+    return user.is_onboarded === false ? 'authenticated' : 'authenticated'
   }
 
   if (nextStep === 'NEED_LOGIN_OTP') {
@@ -584,6 +585,7 @@ export async function clearPersistedAuth() {
     SecureStore.deleteItemAsync(TOKEN_KEY),
     SecureStore.deleteItemAsync(SESSION_KEY),
     SecureStore.deleteItemAsync(USER_KEY),
+    setStoredSupabaseAccessToken(null),
   ]);
 }
 
@@ -651,10 +653,10 @@ async function persistSessionResult<TResponse>(
 }
 
 async function applySupabaseAuthResponse(response: AuthSupabaseSessionPayload) {
-  console.log('applySupabaseAuthResponse', response);
-  const accessToken = response.supabase_token?.trim() || null;
-  const refreshToken = response.supabase_token?.trim() || null;
-  const realtimeToken = response.supabase_token?.trim() || accessToken;
+  const accessToken = response.supabase_access_token?.trim() || null;
+  const refreshToken = response.supabase_refresh_token?.trim() || null;
+  const realtimeToken =
+    response.supabase_token?.trim() || accessToken || refreshToken || null;
   const usesMockTokens =
     __DEV__ &&
     [accessToken, refreshToken, realtimeToken].some((token) => token?.startsWith('mock-supabase'));

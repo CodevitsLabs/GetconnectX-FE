@@ -5,6 +5,8 @@ import { supabaseChatRepository } from '@features/chat/data/supabase/SupabaseCha
 import { configureApiClient } from '@shared/services/api';
 import {
   clearSupabaseSession,
+  debugLogSupabaseUsersProbe,
+  getStoredSupabaseIdentity,
   getSupabaseSession,
   signOutSupabase,
   supabase,
@@ -107,9 +109,71 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const [session, setSession] = React.useState<AuthSession | null>(null);
   const authBypassEnabled = React.useMemo(() => isAuthBypassEnabled(), []);
   const sessionRef = React.useRef<AuthSession | null>(null);
+  const usersProbeKeyRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     sessionRef.current = session;
+  }, [session]);
+
+  React.useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    if (!session) {
+      usersProbeKeyRef.current = null;
+      return;
+    }
+
+    const probeKey = `${session.method}:${session.user?.id ?? session.email}`;
+
+    if (usersProbeKeyRef.current === probeKey) {
+      return;
+    }
+
+    usersProbeKeyRef.current = probeKey;
+
+    void debugLogSupabaseUsersProbe().catch((error) => {
+      console.log('[supabase:probe:users:unexpected-error]', error);
+    });
+  }, [session]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    const syncChatAvailability = async () => {
+      if (!session) {
+        setIsChatEnabled(false);
+        return;
+      }
+
+      const [supabaseSession, storedSupabaseIdentity] = await Promise.all([
+        getSupabaseSession(),
+        getStoredSupabaseIdentity(),
+      ]);
+
+      if (!isActive) {
+        return;
+      }
+
+      setIsChatEnabled(Boolean(supabaseSession?.user || storedSupabaseIdentity));
+    };
+
+    void syncChatAvailability().catch((error) => {
+      if (!isActive) {
+        return;
+      }
+
+      setIsChatEnabled(false);
+
+      if (__DEV__) {
+        console.warn('[auth] failed to resolve chat availability', error);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, [session]);
 
   const reconnectChatRealtime = React.useCallback(() => {
