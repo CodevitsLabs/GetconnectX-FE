@@ -1,3 +1,4 @@
+/* global __dirname */
 const fs = require('fs');
 const path = require('path');
 
@@ -40,6 +41,7 @@ module.exports = ({ config }) => {
   const requestedPlugins = [
     "expo-font",
     "expo-image",
+    "expo-location",
     "expo-sqlite",
     "expo-web-browser"
   ];

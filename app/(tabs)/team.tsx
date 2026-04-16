@@ -1,5 +1,5 @@
-import { View } from 'react-native';
+import { TeamScreen } from '@features/team';
 
 export default function TeamRoute() {
-  return <View className="flex-1 bg-background" />;
+  return <TeamScreen />;
 }

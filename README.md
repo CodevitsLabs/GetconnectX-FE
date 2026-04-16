@@ -144,9 +144,34 @@ EXPO_PUBLIC_API_BASE_URL=...
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...
 EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME=...
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
+EXPO_PUBLIC_MOCK_MATCHES_LIST_RESPONSE=success
+EXPO_PUBLIC_MOCK_DISCOVERY_REWIND_RESPONSE=off
+EXPO_PUBLIC_MOCK_SUPERLIKE_NO_BOOST=false
+EXPO_PUBLIC_MOCK_SPOTLIGHT_ACTIVATION_RESPONSE=off
+EXPO_PUBLIC_REVENUECAT_DISCOVERY_BOOSTS_OFFERING_ID=discovery_boosts
+EXPO_PUBLIC_REVENUECAT_DISCOVERY_SPOTLIGHT_OFFERING_ID=discovery_spotlight
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
 EXPO_PUBLIC_SUPABASE_URL=...
 ```
+
+Set `EXPO_PUBLIC_MOCK_SUPERLIKE_NO_BOOST=true` in development to force `super_like` to throw the
+same `409 DISCOVERY_SUPER_LIKE_REQUIRES_BOOST` payload as the backend denial flow and open the
+RevenueCat paywall.
+
+Set `EXPO_PUBLIC_REVENUECAT_DISCOVERY_BOOSTS_OFFERING_ID` if your boost paywall offering uses a
+different identifier than `discovery_boosts`.
+
+Set `EXPO_PUBLIC_REVENUECAT_DISCOVERY_SPOTLIGHT_OFFERING_ID` if your spotlight paywall offering
+uses a different identifier than `discovery_spotlight`.
+
+Set `EXPO_PUBLIC_MOCK_MATCHES_LIST_RESPONSE=success` in development to render the typed mock
+matches list response while the backend endpoint is not ready yet.
+
+Set `EXPO_PUBLIC_MOCK_DISCOVERY_REWIND_RESPONSE` to `success`, `premium_required`, or
+`not_available` in development to mock the rewind API path on the discovery deck.
+
+Set `EXPO_PUBLIC_MOCK_SPOTLIGHT_ACTIVATION_RESPONSE` to `success`, `no_credit`, or
+`already_active` in development to mock the spotlight activation API path on the Matches screen.
 
 3. Start Expo
 
@@ -171,6 +196,20 @@ Set up Supabase first:
 The inbox list now reads from `conversation_summaries`, a per-user summary table maintained by
 Postgres triggers. Message history still comes from `messages`, and the active room still subscribes
 at `room:<conversationId>` for message inserts, typing, and presence.
+
+For the planned Figma-style chat UI database changes, see
+[supabase/chat-figma-db-spec.md](/Users/dwiki/Development/connectx/supabase/chat-figma-db-spec.md).
+
+If your backend already uses `public.users` as the profile table, use
+[supabase/chat-figma-backend-handoff.md](/Users/dwiki/Development/connectx/supabase/chat-figma-backend-handoff.md)
+as the handoff spec and do not add a duplicate `profiles` table.
+
+To apply the first concrete schema step for that design, run
+[supabase/chat-figma-schema.sql](/Users/dwiki/Development/connectx/supabase/chat-figma-schema.sql)
+after the base chat setup script.
+
+To extend chat from text-only messages to image/video/file messages, run
+[supabase/chat-media-message-support.sql](/Users/dwiki/Development/connectx/supabase/chat-media-message-support.sql).
 
 ### Two-emulator test flow
 
@@ -198,3 +237,5 @@ order by created_at desc;
 - The shared API layer already supports bearer-token injection when auth exists.
 - The Products demo uses the exact same shared fetch/query foundation as future real endpoints.
 - The current app uses Expo Router, React Query, SecureStore, NativeWind, and feature barrels together.
+- The discovery consumables contract for `CON-60` is documented in
+  [docs/discovery-consumables-contract.md](/Users/dwiki/Development/connectx/docs/discovery-consumables-contract.md).

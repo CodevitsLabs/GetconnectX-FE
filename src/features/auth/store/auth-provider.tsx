@@ -1,8 +1,10 @@
 import React from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
+import { supabaseChatRepository } from '@features/chat/data/supabase/SupabaseChatRepository';
 import { configureApiClient } from '@shared/services/api';
 import {
+  clearSupabaseSession,
   getSupabaseSession,
   signOutSupabase,
   supabase,
@@ -10,28 +12,34 @@ import {
 } from '@shared/services/supabase/client';
 
 import { isAuthBypassEnabled } from '../config/auth-config';
+import type { LoginPayload } from '../services/auth-service';
 import {
   clearPersistedAuth,
-  createGoogleAuthSessionFromSupabaseSession,
+  createOAuthAuthSessionFromSupabaseSession,
   enterWithDevBypassSession,
   getPersistedAuthState,
   getStoredToken,
-  loginWithGoogleSupabase,
   loginWithApi,
+  loginWithGoogleApi,
+  loginWithLinkedInApi,
   registerWithApi,
-  resendWhatsappOtpWithApi,
-  resendEmailOtpWithMock,
   replaceStoredSession,
-  sendWhatsappOtpWithApi,
-  sendEmailOtpWithMock,
-  verifyEmailOtpWithMock,
-  verifyWhatsappOtpWithApi,
+  resendEmailOtp as resendEmailOtpRequest,
+  resendLoginOtp as resendLoginOtpRequest,
+  resendWhatsappOtp as resendWhatsappOtpRequest,
+  sendEmailOtp as sendEmailOtpRequest,
+  sendLoginOtp as sendLoginOtpRequest,
+  sendWhatsappOtp as sendWhatsappOtpRequest,
+  verifyEmailOtp as verifyEmailOtpRequest,
+  verifyLoginOtp as verifyLoginOtpRequest,
+  verifyWhatsappOtp as verifyWhatsappOtpRequest,
 } from '../services/auth-service';
-import type { LoginPayload } from '../services/auth-service';
-import { signInWithGoogleToken } from '../services/google-auth-service';
+import { signInWithGoogleToken, signOutGoogle } from '../services/google-auth-service';
+import { signInWithLinkedInToken } from '../services/linkedin-auth-service';
 import type {
   AuthPhase,
   AuthSession,
+  LoginOtpVerifyPayload,
   RegisterPayload,
   VerifyEmailPayload,
   VerifyWhatsappPayload,
@@ -42,26 +50,59 @@ type AuthContextValue = {
   authPhase: AuthPhase;
   completeOnboarding: () => Promise<void>;
   enterPendingOnboarding: () => Promise<void>;
+  isChatEnabled: boolean;
   isHydrated: boolean;
   isAuthBypassEnabled: boolean;
   session: AuthSession | null;
   enterWithDevBypass: () => Promise<void>;
   login: (payload: LoginPayload) => ReturnType<typeof loginWithApi>;
   register: (payload: RegisterPayload) => ReturnType<typeof registerWithApi>;
-  resendEmailOtp: () => ReturnType<typeof resendEmailOtpWithMock>;
-  resendWhatsappOtp: () => ReturnType<typeof resendWhatsappOtpWithApi>;
-  sendEmailOtp: () => ReturnType<typeof sendEmailOtpWithMock>;
-  sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpWithApi>;
-  signInWithGoogle: () => ReturnType<typeof loginWithGoogleSupabase>;
+  resendLoginOtp: () => ReturnType<typeof resendLoginOtpRequest>;
+  resendEmailOtp: () => ReturnType<typeof resendEmailOtpRequest>;
+  resendWhatsappOtp: () => ReturnType<typeof resendWhatsappOtpRequest>;
+  sendLoginOtp: () => ReturnType<typeof sendLoginOtpRequest>;
+  sendEmailOtp: () => ReturnType<typeof sendEmailOtpRequest>;
+  sendWhatsappOtp: (payload: WhatsappOtpPayload) => ReturnType<typeof sendWhatsappOtpRequest>;
+  signInWithGoogle: (payload?: { fcmToken?: string | null }) => ReturnType<typeof loginWithGoogleApi>;
+  signInWithLinkedIn: (payload?: { fcmToken?: string | null }) => ReturnType<typeof loginWithLinkedInApi>;
   signOut: () => Promise<void>;
-  verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpWithMock>;
-  verifyWhatsappOtp: (payload: VerifyWhatsappPayload) => ReturnType<typeof verifyWhatsappOtpWithApi>;
+  verifyLoginOtp: (payload: LoginOtpVerifyPayload) => ReturnType<typeof verifyLoginOtpRequest>;
+  verifyEmailOtp: (payload: VerifyEmailPayload) => ReturnType<typeof verifyEmailOtpRequest>;
+  verifyWhatsappOtp: (payload: VerifyWhatsappPayload) => ReturnType<typeof verifyWhatsappOtpRequest>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
+function isRecoverableSupabaseSessionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedName = error.name.toLowerCase();
+  const normalizedMessage = error.message.toLowerCase();
+
+  if (normalizedName === 'authsessionmissingerror') {
+    return true;
+  }
+
+  return (
+    normalizedName === 'authapierror' &&
+    normalizedMessage.includes('refresh token') &&
+    (normalizedMessage.includes('invalid') || normalizedMessage.includes('not found'))
+  );
+}
+
+function canRestoreWithoutToken(authPhase: AuthPhase) {
+  return authPhase === 'pending_login_otp';
+}
+
+function isExternalOAuthMethod(method?: AuthSession['method'] | null) {
+  return method === 'google' || method === 'linkedin';
+}
+
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [isHydrated, setIsHydrated] = React.useState(false);
+  const [isChatEnabled, setIsChatEnabled] = React.useState(false);
   const [authPhase, setAuthPhase] = React.useState<AuthPhase>('signed_out');
   const [session, setSession] = React.useState<AuthSession | null>(null);
   const authBypassEnabled = React.useMemo(() => isAuthBypassEnabled(), []);
@@ -71,15 +112,35 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     sessionRef.current = session;
   }, [session]);
 
+  const reconnectChatRealtime = React.useCallback(() => {
+    void supabaseChatRepository.reconnectRealtime().catch((error) => {
+      if (__DEV__) {
+        console.warn('[chat] failed to reconnect realtime subscriptions', error);
+      }
+    });
+  }, []);
+
   const signOut = React.useCallback(async () => {
-    const shouldSignOutSupabase = session?.method === 'google';
+    const shouldSignOutGoogle = session?.method === 'google';
 
     await clearPersistedAuth();
 
-    if (shouldSignOutSupabase) {
-      await signOutSupabase();
+    const cleanupResults = await Promise.allSettled([
+      signOutSupabase(),
+      supabaseChatRepository.clearRealtimeSubscriptions(),
+      syncSupabaseRealtimeAuth(null),
+      ...(shouldSignOutGoogle ? [signOutGoogle()] : []),
+    ]);
+
+    if (__DEV__) {
+      const rejectedCleanup = cleanupResults.find((result) => result.status === 'rejected');
+
+      if (rejectedCleanup?.status === 'rejected') {
+        console.warn('[auth] sign-out cleanup failed', rejectedCleanup.reason);
+      }
     }
 
+    setIsChatEnabled(false);
     setAuthPhase('signed_out');
     setSession(null);
   }, [session?.method]);
@@ -95,10 +156,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       onboardingCompletedAt: session.onboardingCompletedAt ?? null,
       user: session.user
         ? {
-            ...session.user,
-            is_active: false,
-            registration_step: Math.max(session.user.registration_step, 4),
-          }
+          ...session.user,
+          is_active: false,
+          is_onboarded: false,
+          registration_step: Math.max(session.user.registration_step, 4),
+        }
         : null,
     };
 
@@ -119,10 +181,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       onboardingCompletedAt: completedAt,
       user: session.user
         ? {
-            ...session.user,
-            is_active: true,
-            registration_step: Math.max(session.user.registration_step, 5),
-          }
+          ...session.user,
+          is_active: true,
+          is_onboarded: true,
+          registration_step: Math.max(session.user.registration_step, 5),
+        }
         : null,
     };
 
@@ -135,46 +198,89 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     let isActive = true;
 
     const hydrate = async () => {
-      const supabaseSession = await getSupabaseSession();
+      try {
+        const supabaseSession = await getSupabaseSession();
+        const persistedState = await getPersistedAuthState();
 
-      if (!isActive) {
-        return;
-      }
+        if (!isActive) {
+          return;
+        }
 
-      if (supabaseSession?.user) {
-        const nextSession = createGoogleAuthSessionFromSupabaseSession(supabaseSession);
+        if (supabaseSession?.user) {
+          const normalizedEmail = supabaseSession.user.email?.trim().toLowerCase() ?? null;
+          const persistedSession = persistedState.session;
+          const persistedOAuthSession =
+            persistedSession &&
+            isExternalOAuthMethod(persistedSession.method) &&
+              normalizedEmail &&
+              persistedSession.email === normalizedEmail
+              ? persistedSession
+              : null;
+          const oauthMethod = persistedSession && isExternalOAuthMethod(persistedSession.method)
+            ? persistedSession.method
+            : 'google';
+          const nextSession =
+            persistedOAuthSession ??
+            createOAuthAuthSessionFromSupabaseSession(supabaseSession, oauthMethod);
 
-        await Promise.all([
-          replaceStoredSession(nextSession),
-          syncSupabaseRealtimeAuth(supabaseSession),
+          await Promise.all([
+            replaceStoredSession(nextSession),
+            syncSupabaseRealtimeAuth(supabaseSession),
+          ]);
+
+          if (!isActive) {
+            return;
+          }
+
+          setIsChatEnabled(true);
+          setSession(nextSession);
+          setAuthPhase(nextSession.authPhase);
+          setIsHydrated(true);
+          return;
+        }
+        const { token, session: storedSession } = persistedState;
+
+        if (!isActive) {
+          return;
+        }
+
+        if ((token && storedSession) || (storedSession && canRestoreWithoutToken(storedSession.authPhase))) {
+          setIsChatEnabled(false);
+          setSession(storedSession);
+          setAuthPhase(storedSession.authPhase);
+        } else {
+          await clearPersistedAuth();
+          setIsChatEnabled(false);
+          setSession(null);
+          setAuthPhase('signed_out');
+        }
+
+        setIsHydrated(true);
+      } catch (error) {
+        if (!isRecoverableSupabaseSessionError(error)) {
+          throw error;
+        }
+
+        if (__DEV__) {
+          console.warn('[auth] cleared stale Supabase session during hydrate', error);
+        }
+
+        await Promise.allSettled([
+          clearPersistedAuth(),
+          clearSupabaseSession(),
+          supabaseChatRepository.clearRealtimeSubscriptions(),
+          syncSupabaseRealtimeAuth(null),
         ]);
 
         if (!isActive) {
           return;
         }
 
-        setSession(nextSession);
-        setAuthPhase(nextSession.authPhase);
-        setIsHydrated(true);
-        return;
-      }
-
-      const { token, session: storedSession } = await getPersistedAuthState();
-
-      if (!isActive) {
-        return;
-      }
-
-      if (token && storedSession) {
-        setSession(storedSession);
-        setAuthPhase(storedSession.authPhase);
-      } else {
-        await clearPersistedAuth();
+        setIsChatEnabled(false);
         setSession(null);
         setAuthPhase('signed_out');
+        setIsHydrated(true);
       }
-
-      setIsHydrated(true);
     };
 
     void hydrate();
@@ -188,19 +294,16 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     configureApiClient({
       getAccessToken: getStoredToken,
       onUnauthorized: async () => {
-        if (session?.method === 'google') {
-          return;
-        }
-
         await signOut();
       },
     });
-  }, [session?.method, signOut]);
+  }, [signOut]);
 
   React.useEffect(() => {
     const syncAutoRefresh = (state: AppStateStatus) => {
       if (state === 'active') {
         supabase.auth.startAutoRefresh();
+        reconnectChatRealtime();
       } else {
         supabase.auth.stopAutoRefresh();
       }
@@ -212,14 +315,17 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [reconnectChatRealtime]);
 
   React.useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, nextSupabaseSession) => {
       if (event === 'SIGNED_OUT') {
-        if (sessionRef.current?.method === 'google') {
+        await supabaseChatRepository.clearRealtimeSubscriptions();
+        setIsChatEnabled(false);
+
+        if (isExternalOAuthMethod(sessionRef.current?.method)) {
           await clearPersistedAuth();
           setSession(null);
           setAuthPhase('signed_out');
@@ -232,21 +338,34 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
         (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') &&
         nextSupabaseSession?.user
       ) {
-        const nextSession = createGoogleAuthSessionFromSupabaseSession(nextSupabaseSession);
+        const normalizedEmail = nextSupabaseSession.user.email?.trim().toLowerCase() ?? null;
+        const currentSession = sessionRef.current;
+        const oauthMethod = currentSession && isExternalOAuthMethod(currentSession.method)
+          ? currentSession.method
+          : 'google';
+        const nextSession =
+          currentSession &&
+          isExternalOAuthMethod(currentSession.method) &&
+            normalizedEmail &&
+            currentSession.email === normalizedEmail
+            ? currentSession
+            : createOAuthAuthSessionFromSupabaseSession(nextSupabaseSession, oauthMethod);
 
         await Promise.all([
           replaceStoredSession(nextSession),
           syncSupabaseRealtimeAuth(nextSupabaseSession),
         ]);
+        setIsChatEnabled(true);
         setSession(nextSession);
         setAuthPhase(nextSession.authPhase);
+        reconnectChatRealtime();
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [reconnectChatRealtime]);
 
   const login = React.useCallback(
     async (payload: LoginPayload) => {
@@ -258,13 +377,27 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     []
   );
 
-  const signInWithGoogle = React.useCallback(async () => {
+  const signInWithGoogle = React.useCallback(async (payload?: { fcmToken?: string | null }) => {
     const googleResult = await signInWithGoogleToken();
-    const result = await loginWithGoogleSupabase({
+    const result = await loginWithGoogleApi({
       accessToken: googleResult.accessToken,
       displayName: googleResult.displayName,
       email: googleResult.email,
+      fcmToken: payload?.fcmToken ?? '',
       idToken: googleResult.idToken,
+    });
+
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+
+    return result;
+  }, []);
+
+  const signInWithLinkedIn = React.useCallback(async (payload?: { fcmToken?: string | null }) => {
+    const linkedInResult = await signInWithLinkedInToken();
+    const result = await loginWithLinkedInApi({
+      providerToken: linkedInResult.providerToken,
+      fcmToken: payload?.fcmToken ?? '',
     });
 
     setSession(result.session);
@@ -275,7 +408,6 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const register = React.useCallback(
     async (payload: RegisterPayload) => {
-      console.log('registering', payload);
       const result = await registerWithApi(payload);
       setSession(result.session);
       setAuthPhase(result.session.authPhase);
@@ -285,42 +417,63 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   );
 
   const sendEmailOtp = React.useCallback(async () => {
-    const result = await sendEmailOtpWithMock();
+    const result = await sendEmailOtpRequest();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const sendLoginOtp = React.useCallback(async () => {
+    const result = await sendLoginOtpRequest();
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
   }, []);
 
   const resendEmailOtp = React.useCallback(async () => {
-    const result = await resendEmailOtpWithMock();
+    const result = await resendEmailOtpRequest();
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const resendLoginOtp = React.useCallback(async () => {
+    const result = await resendLoginOtpRequest();
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
   }, []);
 
   const sendWhatsappOtp = React.useCallback(async (payload: WhatsappOtpPayload) => {
-    const result = await sendWhatsappOtpWithApi(payload);
+    const result = await sendWhatsappOtpRequest(payload);
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
   }, []);
 
   const resendWhatsappOtp = React.useCallback(async () => {
-    const result = await resendWhatsappOtpWithApi();
+    const result = await resendWhatsappOtpRequest();
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
   }, []);
 
   const verifyEmailOtp = React.useCallback(async (payload: VerifyEmailPayload) => {
-    const result = await verifyEmailOtpWithMock(payload);
+    const result = await verifyEmailOtpRequest(payload);
+    setSession(result.session);
+    setAuthPhase(result.session.authPhase);
+    return result;
+  }, []);
+
+  const verifyLoginOtp = React.useCallback(async (payload: LoginOtpVerifyPayload) => {
+    const result = await verifyLoginOtpRequest(payload);
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
   }, []);
 
   const verifyWhatsappOtp = React.useCallback(async (payload: VerifyWhatsappPayload) => {
-    const result = await verifyWhatsappOtpWithApi(payload);
+    const result = await verifyWhatsappOtpRequest(payload);
     setSession(result.session);
     setAuthPhase(result.session.authPhase);
     return result;
@@ -338,17 +491,22 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       completeOnboarding,
       enterWithDevBypass,
       enterPendingOnboarding,
+      isChatEnabled,
       isHydrated,
       isAuthBypassEnabled: authBypassEnabled,
       login,
       register,
+      resendLoginOtp,
       resendEmailOtp,
       resendWhatsappOtp,
+      sendLoginOtp,
       sendEmailOtp,
       sendWhatsappOtp,
       session,
       signInWithGoogle,
+      signInWithLinkedIn,
       signOut,
+      verifyLoginOtp,
       verifyEmailOtp,
       verifyWhatsappOtp,
     }),
@@ -358,16 +516,21 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       completeOnboarding,
       enterWithDevBypass,
       enterPendingOnboarding,
+      isChatEnabled,
       isHydrated,
       login,
       register,
+      resendLoginOtp,
       resendEmailOtp,
       resendWhatsappOtp,
+      sendLoginOtp,
       sendEmailOtp,
       sendWhatsappOtp,
       session,
       signInWithGoogle,
+      signInWithLinkedIn,
       signOut,
+      verifyLoginOtp,
       verifyEmailOtp,
       verifyWhatsappOtp,
     ]

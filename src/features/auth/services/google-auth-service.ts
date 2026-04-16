@@ -81,14 +81,14 @@ export async function signInWithGoogleToken(): Promise<GoogleAuthResult> {
 
     const tokens = await GoogleSignin.getTokens();
     const accessToken = tokens.accessToken?.trim();
-    const idToken = response.data.idToken?.trim() || tokens.idToken?.trim();
+    const idToken = response.data.idToken?.trim() || tokens.idToken?.trim() || null;
     const email = response.data.user.email.trim().toLowerCase();
     const displayName = response.data.user.name?.trim() || email.split('@')[0] || 'ConnectX Member';
     const userId = response.data.user.id.trim();
 
-    if (!accessToken || !idToken || !email || !userId) {
+    if (!accessToken || !email || !userId) {
       throw new Error(
-        'Google Sign-In succeeded, but the expected ID token payload was incomplete. Check the configured Google OAuth client IDs in both the app and Supabase.'
+        'Google Sign-In succeeded, but the expected access token payload was incomplete. Check the configured Google OAuth client IDs in the app build.'
       );
     }
 
@@ -103,5 +103,20 @@ export async function signInWithGoogleToken(): Promise<GoogleAuthResult> {
     };
   } catch (error) {
     throw normalizeGoogleSignInError(error);
+  }
+}
+
+export async function signOutGoogle() {
+  if (process.env.EXPO_OS === 'web') {
+    return;
+  }
+
+  try {
+    ensureGoogleSignInConfigured();
+    await GoogleSignin.signOut();
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[auth] failed to clear native Google session', error);
+    }
   }
 }

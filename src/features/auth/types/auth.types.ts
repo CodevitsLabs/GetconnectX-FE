@@ -1,13 +1,17 @@
-export type AuthMethod = 'email' | 'google' | 'apple' | 'developer-bypass';
+export type AuthMethod = 'email' | 'google' | 'linkedin' | 'apple' | 'developer-bypass';
+export type OAuthAuthMethod = Extract<AuthMethod, 'google' | 'linkedin'>;
 
 export type AuthPhase =
   | 'signed_out'
+  | 'pending_login_otp'
   | 'pending_email_verification'
   | 'pending_whatsapp_verification'
   | 'pending_onboarding'
   | 'authenticated';
 
 export type AuthNextStep =
+  | 'LOGIN_SUCCESS'
+  | 'NEED_LOGIN_OTP'
   | 'NEED_EMAIL_VERIFICATION'
   | 'NEED_WHATSAPP_VERIFICATION'
   | 'NEED_EMAIL_OTP'
@@ -22,6 +26,7 @@ export type AuthUser = {
   whatsapp_verified_at: string | null;
   registration_step: number;
   is_active: boolean;
+  is_onboarded: boolean | null;
 };
 
 export type AuthSession = {
@@ -33,12 +38,35 @@ export type AuthSession = {
   emailOtpLastSentAt?: string | null;
   emailOtpResendAvailableAt?: string | null;
   isDevelopmentBypass?: boolean;
+  loginOtpCode?: string | null;
+  loginOtpExpiresAt?: string | null;
+  loginOtpLastSentAt?: string | null;
+  loginOtpResendAvailableAt?: string | null;
   method: AuthMethod;
   onboardingCompletedAt?: string | null;
   pendingWhatsappNumber?: string | null;
+  shouldAutoSendEmailOtp?: boolean;
+  shouldAutoSendLoginOtp?: boolean;
   user: AuthUser | null;
   whatsappOtpLastSentAt?: string | null;
   whatsappOtpResendAvailableAt?: string | null;
+};
+
+export type AuthSupabaseSessionPayload = {
+  supabase_access_token?: string | null;
+  supabase_refresh_token?: string | null;
+  supabase_token?: string | null;
+};
+
+export type AuthSuccessResponse = AuthSupabaseSessionPayload & {
+  data: {
+    user: AuthUser;
+  };
+  message: string;
+  next_step: AuthNextStep;
+  status: 'success';
+  token: string;
+  token_type: string;
 };
 
 export type RegisterPayload = {
@@ -50,6 +78,15 @@ export type RegisterPayload = {
 };
 
 export type VerifyEmailPayload = {
+  otp_code: string;
+};
+
+export type LoginOtpSendPayload = {
+  email: string;
+};
+
+export type LoginOtpVerifyPayload = {
+  email: string;
   otp_code: string;
 };
 
@@ -66,15 +103,36 @@ export type GoogleAuthResult = {
   displayName: string;
   provider: 'google';
   accessToken: string;
-  idToken: string;
+  idToken: string | null;
   fcmToken: string | null;
   userId: string;
+};
+
+export type LinkedInAuthResult = {
+  providerToken: string;
+  provider: 'linkedin';
 };
 
 export type OtpMessageResponse = {
   data: [];
   message: string;
   next_step: 'NEED_EMAIL_VERIFICATION';
+  status: 'success';
+};
+
+export type LoginPasswordSuccessResponse = {
+  data: [];
+  message: string;
+  next_step?: string | null;
+  status: 'success';
+  token?: string | null;
+  token_type?: string | null;
+} & AuthSupabaseSessionPayload;
+
+export type LoginOtpMessageResponse = {
+  data: [];
+  message: string;
+  next_step?: string | null;
   status: 'success';
 };
 
@@ -127,7 +185,9 @@ export type VerifyWhatsappSuccessResponse = {
   status: 'success';
   token: string;
   token_type: string;
-};
+} & AuthSupabaseSessionPayload;
+
+export type LoginOtpVerifySuccessResponse = VerifyWhatsappSuccessResponse;
 
 export type VerifyWhatsappValidationErrorResponse = {
   errors: {

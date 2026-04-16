@@ -3,8 +3,6 @@ import { ScrollView, View } from 'react-native';
 
 import { AppCard, AppListItem, AppPill, AppText } from '@shared/components';
 
-
-
 type AuthShellProps = React.PropsWithChildren<{
   description?: string;
   footer?: React.ReactNode;
@@ -27,9 +25,10 @@ export function AuthShell({
   return (
     <ScrollView
       className="flex-1 bg-canvas"
-      contentContainerClassName="gap-6 px-5 pt-10 pb-24"
+      contentContainerClassName="gap-6 pb-24"
       contentInsetAdjustmentBehavior="automatic">
-      <View className="gap-4">
+
+      <View className="gap-4 px-5">
         <View className="gap-3">
           <AppPill className="self-start" label={pill} tone="accent" />
           <AppText variant="display">{title}</AppText>
@@ -50,9 +49,9 @@ export function AuthShell({
         ) : null}
       </View>
 
-      <AppCard className="gap-4 p-5">{children}</AppCard>
+      <AppCard className="mx-5 gap-4 p-5">{children}</AppCard>
 
-      {footer ? <View className="gap-4">{footer}</View> : null}
+      {footer ? <View className="gap-4 px-5">{footer}</View> : null}
     </ScrollView>
   );
 }
