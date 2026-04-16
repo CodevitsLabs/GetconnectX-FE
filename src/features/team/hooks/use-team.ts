@@ -1,9 +1,16 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createStartupInvitation, fetchTeamOverview } from '../services/team-service';
+import {
+  createStartupInvitation,
+  fetchStartupInvitations,
+  fetchTeamOverview,
+  respondToStartupInvitation,
+} from '../services/team-service';
+import type { RespondToStartupInvitationRequest } from '../types/team.types';
 
 export const teamQueryKeys = {
   overview: ['team', 'overview'] as const,
+  invitations: ['team', 'invitations'] as const,
 };
 
 export function useTeamOverview() {
@@ -16,5 +23,33 @@ export function useTeamOverview() {
 export function useCreateStartupInvitation() {
   return useMutation({
     mutationFn: createStartupInvitation,
+  });
+}
+
+export function useStartupInvitations(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: teamQueryKeys.invitations,
+    queryFn: fetchStartupInvitations,
+  });
+}
+
+export function useRespondToStartupInvitation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      invitationId,
+      payload,
+    }: {
+      invitationId: string;
+      payload: RespondToStartupInvitationRequest;
+    }) => respondToStartupInvitation(invitationId, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamQueryKeys.overview }),
+        queryClient.invalidateQueries({ queryKey: teamQueryKeys.invitations }),
+      ]);
+    },
   });
 }

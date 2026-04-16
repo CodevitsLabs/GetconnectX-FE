@@ -1,0 +1,30 @@
+{
+  "_description": "Expected JSON payloads for startup invitation inbox APIs. FE should use these shapes as the source of truth until the backend is live.",
+  "base_url": "/api/v1",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/me/startup-invitations",
+      "file": "get-startup-invitations.response.json",
+      "notes": "Returns incoming startup invitations for the authenticated user."
+    },
+    {
+      "method": "POST",
+      "path": "/me/startup-invitations/:invitationId/respond",
+      "file": "respond-startup-invitation.request.json",
+      "notes": "Request body for accepting or denying an invitation."
+    },
+    {
+      "method": "POST",
+      "path": "/me/startup-invitations/:invitationId/respond",
+      "file": "respond-startup-invitation.accept.response.json",
+      "notes": "200 success example when the decision is accept."
+    },
+    {
+      "method": "POST",
+      "path": "/me/startup-invitations/:invitationId/respond",
+      "file": "respond-startup-invitation.deny.response.json",
+      "notes": "200 success example when the decision is deny."
+    }
+  ]
+}

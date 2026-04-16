@@ -396,18 +396,6 @@ export function LoginScreen() {
                 />
               </>
             ) : null}
-            <SocialCta
-              disabled={isSubmitting || isGoogleSubmitting || isLinkedInSubmitting}
-              icon={<Ionicons color="#FFFFFF" name="eye-outline" size={18} />}
-              label="Preview onboarding"
-              onPress={() => {
-                router.push({
-                  pathname: '/onboarding',
-                  params: { mode: 'preview' },
-                });
-              }}
-            />
-
             <View className="flex-row items-center gap-3 py-1">
               <View
                 className="h-[1px] flex-1"

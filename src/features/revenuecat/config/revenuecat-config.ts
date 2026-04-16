@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 export const REVENUECAT_ENTITLEMENT_CONNECTX_PRO = 'getconnectx Pro';
+const REVENUECAT_ENABLED_FLAG = process.env.EXPO_PUBLIC_REVENUECAT_ENABLED?.trim().toLowerCase();
 
 export const REVENUECAT_PACKAGE_IDS = {
   lifetime: 'lifetime',
@@ -17,6 +18,11 @@ export const REVENUECAT_OFFERING_IDS = {
 const TEST_REVENUECAT_API_KEY = 'test_qygzknVEBmKBRnPRWUFvfgCvaCZ';
 
 export const REVENUECAT_SUPPORTED_PLATFORM = Platform.OS === 'ios' || Platform.OS === 'android';
+export const REVENUECAT_ENABLED =
+  REVENUECAT_ENABLED_FLAG === undefined || REVENUECAT_ENABLED_FLAG === ''
+    ? true
+    : REVENUECAT_ENABLED_FLAG === 'true' || REVENUECAT_ENABLED_FLAG === '1';
+export const REVENUECAT_RUNTIME_SUPPORTED = REVENUECAT_SUPPORTED_PLATFORM && REVENUECAT_ENABLED;
 
 export function getRevenueCatApiKey() {
   const platformKey =

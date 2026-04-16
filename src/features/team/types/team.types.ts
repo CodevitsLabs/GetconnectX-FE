@@ -82,6 +82,58 @@ export type CreateStartupInvitationResponse = {
   };
 };
 
+export type StartupInvitationStatus = 'pending' | 'accepted' | 'denied' | 'expired' | string;
+
+export type StartupInvitationDecision = 'accept' | 'deny';
+
+export type StartupInvitationStartupSummary = {
+  id: string;
+  name: string;
+  description: string;
+  industry: TeamEntityOption;
+  stage: TeamEntityOption;
+};
+
+export type StartupInvitationInviterSummary = {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  roleLabel: string | null;
+};
+
+export type StartupInvitation = {
+  id: string;
+  recipientEmail: string;
+  status: StartupInvitationStatus;
+  sentAt: string;
+  expiresAt: string | null;
+  startup: StartupInvitationStartupSummary;
+  inviter: StartupInvitationInviterSummary;
+};
+
+export type FetchStartupInvitationsResponse = {
+  success: boolean;
+  data: {
+    invitations: StartupInvitation[];
+  };
+};
+
+export type RespondToStartupInvitationRequest = {
+  decision: StartupInvitationDecision;
+};
+
+export type RespondToStartupInvitationResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    invitationId: string;
+    status: Exclude<StartupInvitationStatus, 'pending'>;
+    startupId: string;
+    actedAt: string;
+  };
+};
+
 export type StartupOptionsResponse = {
   success: boolean;
   data: {

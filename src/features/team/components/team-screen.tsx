@@ -10,13 +10,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-
 import { AppButton, AppCard, AppInput, AppText, AppTopBar } from '@shared/components';
 import { Shadows } from '@shared/theme';
 
-import { useCreateStartupInvitation, useTeamOverview } from '../hooks/use-team';
+import {
+  useCreateStartupInvitation,
+  useRespondToStartupInvitation,
+  useStartupInvitations,
+  useTeamOverview,
+} from '../hooks/use-team';
 import { isNoActiveStartupError } from '../services/team-service';
-import type { TeamMember } from '../types/team.types';
+import type { StartupInvitation, TeamMember } from '../types/team.types';
 
 function getCommitmentLabel(value: string) {
   switch (value) {
@@ -35,6 +39,37 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function formatInvitationDate(value: string | null) {
+  if (!value) {
+    return 'No expiry';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function getInvitationStatusLabel(status: string) {
+  switch (status) {
+    case 'accepted':
+      return 'Accepted';
+    case 'denied':
+      return 'Denied';
+    case 'expired':
+      return 'Expired';
+    default:
+      return 'Pending';
+  }
+}
+
 function InfoPill({
   label,
 }: {
@@ -44,6 +79,40 @@ function InfoPill({
     <View className="rounded-full border border-[#FF9A3E]/30 bg-[#FF9A3E]/10 px-4 py-2">
       <AppText className="text-[#FF9A3E]" variant="body">
         {label}
+      </AppText>
+    </View>
+  );
+}
+
+function InvitationStatusPill({ status }: { status: string }) {
+  const palette =
+    status === 'accepted'
+      ? {
+          backgroundColor: 'rgba(52, 211, 153, 0.12)',
+          borderColor: 'rgba(52, 211, 153, 0.28)',
+          color: '#34D399',
+        }
+      : status === 'denied'
+        ? {
+            backgroundColor: 'rgba(248, 113, 113, 0.12)',
+            borderColor: 'rgba(248, 113, 113, 0.28)',
+            color: '#F87171',
+          }
+        : {
+            backgroundColor: '#FF9A3E1A',
+            borderColor: '#FF9A3E4D',
+            color: '#FF9A3E',
+          };
+
+  return (
+    <View
+      className="rounded-full border px-3 py-1"
+      style={{
+        backgroundColor: palette.backgroundColor,
+        borderColor: palette.borderColor,
+      }}>
+      <AppText className="text-[11px]" style={{ color: palette.color }} variant="label">
+        {getInvitationStatusLabel(status)}
       </AppText>
     </View>
   );
@@ -83,6 +152,100 @@ function MemberCard({ member }: { member: TeamMember }) {
         <AppText className="text-[12px]" tone="muted">{getCommitmentLabel(member.commitment)}</AppText>
       </View>
     </View>
+  );
+}
+
+function InvitationCard({
+  invitation,
+  isAcceptPending,
+  isDenyPending,
+  onAccept,
+  onDeny,
+}: {
+  invitation: StartupInvitation;
+  isAcceptPending: boolean;
+  isDenyPending: boolean;
+  onAccept: () => void;
+  onDeny: () => void;
+}) {
+  const isPending = invitation.status === 'pending';
+
+  return (
+    <AppCard className="gap-4 bg-[#2C2C2C] border-white/10">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <AppText variant="subtitle">{invitation.startup.name}</AppText>
+          <AppText className="text-[13px] leading-5" tone="muted">
+            {invitation.startup.description}
+          </AppText>
+        </View>
+        <InvitationStatusPill status={invitation.status} />
+      </View>
+
+      <View className="gap-2 rounded-[16px] border border-white/10 bg-[#343434] px-4 py-3">
+        <View className="flex-row items-center gap-2">
+          <Ionicons color="#FF9A3E" name="person-outline" size={16} />
+          <AppText className="flex-1 text-[13px]" tone="muted">
+            Invited by {invitation.inviter.name}
+            {invitation.inviter.roleLabel ? ` • ${invitation.inviter.roleLabel}` : ''}
+          </AppText>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Ionicons color="#98A2B3" name="mail-outline" size={16} />
+          <AppText className="flex-1 text-[13px]" tone="muted">
+            {invitation.recipientEmail}
+          </AppText>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Ionicons color="#98A2B3" name="calendar-outline" size={16} />
+          <AppText className="flex-1 text-[13px]" tone="muted">
+            Sent {formatInvitationDate(invitation.sentAt)} • Expires {formatInvitationDate(invitation.expiresAt)}
+          </AppText>
+        </View>
+      </View>
+
+      <View className="flex-row flex-wrap gap-2">
+        <InfoPill label={invitation.startup.industry.label} />
+        <InfoPill label={invitation.startup.stage.label} />
+      </View>
+
+      {isPending ? (
+        <View className="flex-row gap-3">
+          <Pressable
+            className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-[16px] border border-white/10 bg-[#3A3A3C] px-4 py-3"
+            disabled={isAcceptPending || isDenyPending}
+            onPress={onDeny}
+            style={{ opacity: isAcceptPending || isDenyPending ? 0.65 : 1 }}>
+            {isDenyPending ? (
+              <ActivityIndicator color="#F5F7FA" size="small" />
+            ) : (
+              <Ionicons color="#F5F7FA" name="close-outline" size={18} />
+            )}
+            <AppText className="text-[#F5F7FA]" variant="bodyStrong">
+              {isDenyPending ? 'Declining...' : 'Deny'}
+            </AppText>
+          </Pressable>
+          <Pressable
+            className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-[16px] bg-[#FF9A3E] px-4 py-3"
+            disabled={isAcceptPending || isDenyPending}
+            onPress={onAccept}
+            style={{ opacity: isAcceptPending || isDenyPending ? 0.65 : 1 }}>
+            {isAcceptPending ? (
+              <ActivityIndicator color="#11131A" size="small" />
+            ) : (
+              <Ionicons color="#11131A" name="checkmark-outline" size={18} />
+            )}
+            <AppText className="text-[#11131A]" variant="bodyStrong">
+              {isAcceptPending ? 'Accepting...' : 'Accept'}
+            </AppText>
+          </Pressable>
+        </View>
+      ) : (
+        <AppText className="text-[13px]" tone="muted">
+          This invitation is no longer actionable.
+        </AppText>
+      )}
+    </AppCard>
   );
 }
 
@@ -145,14 +308,21 @@ function ActionButton({
 export function TeamScreen() {
   const router = useRouter();
   const teamOverviewQuery = useTeamOverview();
+  const isNoStartupState = teamOverviewQuery.isError && isNoActiveStartupError(teamOverviewQuery.error);
+  const startupInvitationsQuery = useStartupInvitations(isNoStartupState);
+  const respondToStartupInvitationMutation = useRespondToStartupInvitation();
   const createStartupInvitationMutation = useCreateStartupInvitation();
   const [inviteComposerVisible, setInviteComposerVisible] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteError, setInviteError] = React.useState<string | null>(null);
   const [inviteSuccessMessage, setInviteSuccessMessage] = React.useState<string | null>(null);
+  const [invitationFeedbackMessage, setInvitationFeedbackMessage] = React.useState<string | null>(null);
+  const [invitationActionError, setInvitationActionError] = React.useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
   const overview = teamOverviewQuery.data;
+  const pendingInvitations =
+    startupInvitationsQuery.data?.data.invitations.filter((invitation) => invitation.status === 'pending') ?? [];
 
   const navigateToHome = React.useCallback(() => {
     router.navigate('/(tabs)' as never);
@@ -194,6 +364,33 @@ export function TeamScreen() {
     }
   }, [createStartupInvitationMutation, inviteEmail]);
 
+  const handleInvitationDecision = React.useCallback(
+    async (invitationId: string, decision: 'accept' | 'deny') => {
+      setInvitationActionError(null);
+      setInvitationFeedbackMessage(null);
+
+      try {
+        const response = await respondToStartupInvitationMutation.mutateAsync({
+          invitationId,
+          payload: {
+            decision,
+          },
+        });
+
+        setInvitationFeedbackMessage(response.message);
+
+        if (decision === 'accept') {
+          await teamOverviewQuery.refetch();
+        }
+      } catch (error) {
+        setInvitationActionError(
+          error instanceof Error ? error.message : 'Unable to respond to this invitation right now.'
+        );
+      }
+    },
+    [respondToStartupInvitationMutation, teamOverviewQuery]
+  );
+
   if (teamOverviewQuery.isPending && !overview) {
     return (
       <>
@@ -222,8 +419,6 @@ export function TeamScreen() {
   }
 
   if (teamOverviewQuery.isError && !overview) {
-    const isNoStartupState = isNoActiveStartupError(teamOverviewQuery.error);
-
     return (
       <>
         <Stack.Screen options={{ title: 'Team', headerShown: false }} />
@@ -261,6 +456,90 @@ export function TeamScreen() {
                 variant="secondary"
               />
             </AppCard>
+
+            {isNoStartupState ? (
+              <View className="mt-5 gap-4">
+                <View className="px-1">
+                  <AppText tone="muted" variant="label">Incoming Invitations</AppText>
+                </View>
+
+                {invitationFeedbackMessage ? (
+                  <View className="rounded-[18px] border border-[#FF9A3E]/30 bg-[#FF9A3E]/10 px-4 py-3">
+                    <AppText className="text-[#FF9A3E]" variant="bodyStrong">
+                      {invitationFeedbackMessage}
+                    </AppText>
+                  </View>
+                ) : null}
+
+                {invitationActionError ? (
+                  <View className="rounded-[16px] border border-danger/30 bg-danger-tint px-4 py-3">
+                    <AppText tone="danger">{invitationActionError}</AppText>
+                  </View>
+                ) : null}
+
+                {startupInvitationsQuery.isPending && !startupInvitationsQuery.data ? (
+                  <AppCard className="gap-3 bg-[#2C2C2C] border-white/10">
+                    <AppText variant="subtitle">Loading invitations</AppText>
+                    <AppText tone="muted">
+                      Checking whether any startup teams have invited you to join.
+                    </AppText>
+                  </AppCard>
+                ) : null}
+
+                {startupInvitationsQuery.isError ? (
+                  <AppCard className="gap-3 bg-[#2C2C2C] border-white/10">
+                    <AppText variant="subtitle">Unable to load invitations</AppText>
+                    <AppText tone="muted">
+                      We could not load your incoming invitations right now. Try again in a moment.
+                    </AppText>
+                    <AppButton
+                      label={startupInvitationsQuery.isRefetching ? 'Refreshing...' : 'Try Again'}
+                      onPress={() => {
+                        void startupInvitationsQuery.refetch();
+                      }}
+                      variant="secondary"
+                    />
+                  </AppCard>
+                ) : null}
+
+                {!startupInvitationsQuery.isPending &&
+                !startupInvitationsQuery.isError &&
+                pendingInvitations.length === 0 ? (
+                  <AppCard className="gap-3 bg-[#2C2C2C] border-white/10">
+                    <AppText variant="subtitle">No pending invitations</AppText>
+                    <AppText tone="muted">
+                      You do not have any active startup invitations right now.
+                    </AppText>
+                  </AppCard>
+                ) : null}
+
+                {pendingInvitations.map((invitation) => {
+                  const activeVariables = respondToStartupInvitationMutation.variables;
+                  const isCurrentInvitation =
+                    respondToStartupInvitationMutation.isPending &&
+                    activeVariables?.invitationId === invitation.id;
+
+                  return (
+                    <InvitationCard
+                      key={invitation.id}
+                      invitation={invitation}
+                      isAcceptPending={
+                        isCurrentInvitation && activeVariables?.payload.decision === 'accept'
+                      }
+                      isDenyPending={
+                        isCurrentInvitation && activeVariables?.payload.decision === 'deny'
+                      }
+                      onAccept={() => {
+                        void handleInvitationDecision(invitation.id, 'accept');
+                      }}
+                      onDeny={() => {
+                        void handleInvitationDecision(invitation.id, 'deny');
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
           </ScrollView>
         </View>
       </>
