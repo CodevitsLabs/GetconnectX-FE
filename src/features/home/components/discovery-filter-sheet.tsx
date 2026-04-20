@@ -3,6 +3,7 @@ import React from 'react';
 import {
   LayoutChangeEvent,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   Switch,
@@ -278,7 +279,9 @@ function GoalCard({
   );
 }
 
-function RangeControl({
+const RANGE_THUMB_SIZE = 24;
+
+const RangeControl = React.memo(function RangeControl({
   disabled = false,
   field,
   onChange,
@@ -294,26 +297,120 @@ function RangeControl({
   const step = field.step ?? 1;
   const suffix = field.ui.suffix ?? '';
   const nextValue = clampRangeValue(value, min, max, step);
+  const trackRef = React.useRef<View>(null);
+  const trackPageXRef = React.useRef(0);
+  const trackWidthRef = React.useRef(0);
+  const draggingRef = React.useRef(false);
+  const draftValueRef = React.useRef(nextValue);
   const [trackWidth, setTrackWidth] = React.useState(0);
-  const progress = (nextValue - min) / Math.max(max - min, 1);
-  const thumbOffset = Math.min(Math.max(progress * trackWidth - 12, 0), Math.max(trackWidth - 24, 0));
+  const [draftValue, setDraftValue] = React.useState(nextValue);
 
-  const handleTrackLayout = React.useCallback((event: LayoutChangeEvent) => {
-    setTrackWidth(event.nativeEvent.layout.width);
+  React.useEffect(() => {
+    if (draggingRef.current) {
+      return;
+    }
+
+    draftValueRef.current = nextValue;
+    setDraftValue(nextValue);
+  }, [nextValue]);
+
+  const progress = (draftValue - min) / Math.max(max - min, 1);
+  const thumbOffset = Math.min(
+    Math.max(progress * trackWidth - RANGE_THUMB_SIZE / 2, 0),
+    Math.max(trackWidth - RANGE_THUMB_SIZE, 0)
+  );
+
+  const syncTrackMetrics = React.useCallback(() => {
+    trackRef.current?.measureInWindow((pageX, _pageY, measuredWidth) => {
+      trackPageXRef.current = pageX;
+      trackWidthRef.current = measuredWidth;
+      setTrackWidth((current) => (current === measuredWidth ? current : measuredWidth));
+    });
   }, []);
 
-  const updateValueFromPosition = React.useCallback(
-    (locationX: number) => {
-      if (trackWidth <= 0) {
+  const handleTrackLayout = React.useCallback((event: LayoutChangeEvent) => {
+    const measuredWidth = event.nativeEvent.layout.width;
+
+    trackWidthRef.current = measuredWidth;
+    setTrackWidth(measuredWidth);
+    requestAnimationFrame(syncTrackMetrics);
+  }, [syncTrackMetrics]);
+
+  const setDraftValueFromPosition = React.useCallback(
+    (positionX: number) => {
+      const measuredTrackWidth = trackWidthRef.current;
+
+      if (measuredTrackWidth <= 0) {
         return;
       }
 
-      const clampedX = Math.min(trackWidth, Math.max(0, locationX));
-      const rawValue = min + (clampedX / trackWidth) * (max - min);
+      const clampedX = Math.min(measuredTrackWidth, Math.max(0, positionX));
+      const rawValue = min + (clampedX / measuredTrackWidth) * (max - min);
+      const clampedValue = clampRangeValue(rawValue, min, max, step);
 
-      onChange(clampRangeValue(rawValue, min, max, step));
+      if (draftValueRef.current === clampedValue) {
+        return;
+      }
+
+      draftValueRef.current = clampedValue;
+      setDraftValue(clampedValue);
     },
-    [max, min, onChange, step, trackWidth]
+    [max, min, step]
+  );
+
+  const updateValueFromPageX = React.useCallback(
+    (pageX: number, locationX: number) => {
+      const measuredPageX = trackPageXRef.current;
+
+      if (measuredPageX > 0) {
+        setDraftValueFromPosition(pageX - measuredPageX);
+        return;
+      }
+
+      setDraftValueFromPosition(locationX);
+    },
+    [setDraftValueFromPosition]
+  );
+
+  const commitDraftValue = React.useCallback(() => {
+    draggingRef.current = false;
+
+    if (draftValueRef.current !== nextValue) {
+      onChange(draftValueRef.current);
+    }
+  }, [nextValue, onChange]);
+
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          !disabled && Math.abs(gestureState.dx) >= Math.abs(gestureState.dy),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) =>
+          !disabled && Math.abs(gestureState.dx) >= Math.abs(gestureState.dy),
+        onPanResponderGrant: (event) => {
+          if (disabled) {
+            return;
+          }
+
+          draggingRef.current = true;
+          syncTrackMetrics();
+          updateValueFromPageX(event.nativeEvent.pageX, event.nativeEvent.locationX);
+        },
+        onPanResponderMove: (event) => {
+          if (disabled) {
+            return;
+          }
+
+          updateValueFromPageX(event.nativeEvent.pageX, event.nativeEvent.locationX);
+        },
+        onPanResponderRelease: commitDraftValue,
+        onPanResponderTerminate: commitDraftValue,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderReject: commitDraftValue,
+        onStartShouldSetPanResponder: () => !disabled,
+        onStartShouldSetPanResponderCapture: () => !disabled,
+      }),
+    [commitDraftValue, disabled, syncTrackMetrics, updateValueFromPageX]
   );
 
   return (
@@ -323,26 +420,16 @@ function RangeControl({
           {field.title}
         </AppText>
         <AppText tone="signal" variant="bodyStrong">
-          {nextValue}
+          {draftValue}
           {suffix}
         </AppText>
       </View>
       <View className="gap-2">
         <View
+          ref={trackRef}
           className="justify-center"
           onLayout={handleTrackLayout}
-          onMoveShouldSetResponder={() => !disabled}
-          onResponderGrant={(event) => {
-            if (!disabled) {
-              updateValueFromPosition(event.nativeEvent.locationX);
-            }
-          }}
-          onResponderMove={(event) => {
-            if (!disabled) {
-              updateValueFromPosition(event.nativeEvent.locationX);
-            }
-          }}
-          onStartShouldSetResponder={() => !disabled}
+          {...panResponder.panHandlers}
           style={{ height: 30 }}>
           <View
             style={{
@@ -373,11 +460,11 @@ function RangeControl({
               borderColor: '#1B1D22',
               borderRadius: 999,
               borderWidth: 4,
-              height: 24,
+              height: RANGE_THUMB_SIZE,
               left: thumbOffset,
               position: 'absolute',
               top: 3,
-              width: 24,
+              width: RANGE_THUMB_SIZE,
             }}
           />
         </View>
@@ -394,7 +481,7 @@ function RangeControl({
       </View>
     </View>
   );
-}
+});
 
 function CheckboxRow({
   active,
