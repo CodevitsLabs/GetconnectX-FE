@@ -65,6 +65,8 @@ const PRELOAD_THRESHOLD = 3;
 const DISCOVERY_PAGE_LIMIT = 10;
 const DEFAULT_FILTER_MODE: DiscoveryMode = 'joining_startups';
 const MATCH_TOAST_DURATION_MS = 2600;
+const FLOATING_ACTIONS_BOTTOM_OFFSET = 18;
+const FLOATING_ACTIONS_CONTENT_PADDING = 108;
 
 const GOAL_ID_BY_MODE: Record<DiscoveryMode, DiscoveryGoalId> = {
   finding_cofounder: 'goal_finding_cofounder',
@@ -470,9 +472,11 @@ function StartupJourney({ card }: { card: DiscoveryStartupCard }) {
 
 function ProfileCardContent({
   card,
+  bottomInset = 24,
   scrollEnabled = true,
 }: {
   card: DiscoveryProfileCard;
+  bottomInset?: number;
   scrollEnabled?: boolean;
 }) {
   return (
@@ -551,7 +555,7 @@ function ProfileCardContent({
         className="flex-1"
         showsVerticalScrollIndicator={false}
         scrollEnabled={scrollEnabled}
-        contentContainerStyle={{ paddingBottom: 24 }}>
+        contentContainerStyle={{ paddingBottom: bottomInset }}>
         <View className="gap-5 px-4 py-4">
         {card.bio ? (
           <AppText className="text-[16px] leading-7" tone="muted">
@@ -643,9 +647,11 @@ function ProfileCardContent({
 
 function StartupCardContent({
   card,
+  bottomInset = 24,
   scrollEnabled = true,
 }: {
   card: DiscoveryStartupCard;
+  bottomInset?: number;
   scrollEnabled?: boolean;
 }) {
   return (
@@ -721,7 +727,7 @@ function StartupCardContent({
         className="flex-1"
         showsVerticalScrollIndicator={false}
         scrollEnabled={scrollEnabled}
-        contentContainerStyle={{ paddingBottom: 24 }}>
+        contentContainerStyle={{ paddingBottom: bottomInset }}>
         <View className="gap-5 px-4 py-4">
         <AppText className="text-[16px] leading-7" tone="muted">
           {card.summary}
@@ -800,16 +806,18 @@ function StartupCardContent({
 }
 
 function DiscoveryCardContent({
+  bottomInset = 24,
   card,
   scrollEnabled = true,
 }: {
+  bottomInset?: number;
   card: DiscoveryCard;
   scrollEnabled?: boolean;
 }) {
   return isDiscoveryProfileCard(card) ? (
-    <ProfileCardContent card={card} scrollEnabled={scrollEnabled} />
+    <ProfileCardContent bottomInset={bottomInset} card={card} scrollEnabled={scrollEnabled} />
   ) : (
-    <StartupCardContent card={card} scrollEnabled={scrollEnabled} />
+    <StartupCardContent bottomInset={bottomInset} card={card} scrollEnabled={scrollEnabled} />
   );
 }
 
@@ -830,16 +838,24 @@ function DeckActionButton({
 }) {
   const diameter = size === 'large' ? 54 : size === 'medium' ? 48 : 40;
   const iconSize = size === 'large' ? 24 : size === 'medium' ? 20 : 16;
+  const backdropColor =
+    variant === 'filled' ? 'rgba(255, 154, 62, 0.78)' : 'rgba(20, 22, 28, 0.42)';
 
   return (
-    <View style={Shadows.card}>
+    <View
+      style={[
+        Shadows.floating,
+        {
+          borderCurve: 'continuous',
+          boxShadow: '0 10px 28px rgba(0, 0, 0, 0.24)',
+        },
+      ]}>
       <Pressable
-        className="items-center justify-center rounded-full border"
+        className="items-center justify-center rounded-full"
         disabled={disabled}
         onPress={onPress}
         style={{
-          backgroundColor: variant === 'filled' ? color : 'transparent',
-          borderColor: variant === 'filled' ? color : 'rgba(152, 162, 179, 0.15)',
+          backgroundColor: backdropColor,
           height: diameter,
           opacity: disabled ? 0.4 : 1,
           width: diameter,
@@ -1532,7 +1548,7 @@ export function DiscoveryDeck() {
   return (
     <View className="flex-1">
       <AppTopBar rightAccessory={filterButton} />
-      <View className="flex-1 gap-2 px-2 pb-1">
+      <View className="flex-1 px-2 pb-1">
         {matchToastName ? (
           <View className="absolute inset-x-4 top-2 z-20" pointerEvents="none">
             <AppCard
@@ -1552,20 +1568,23 @@ export function DiscoveryDeck() {
         ) : null}
 
         {filterError ? (
-          <AppCard tone="signal" className="gap-2 rounded-[16px] p-3">
+          <AppCard tone="signal" className="mb-2 gap-2 rounded-[16px] p-3">
             <AppText variant="subtitle">Discovery search</AppText>
             <AppText tone="muted">{filterError}</AppText>
           </AppCard>
         ) : null}
 
-
-        <View className="flex-1 mt-2">
+        <View className="relative mt-2 flex-1">
           <View className="h-full w-full">
             {nextItem ? (
               <Animated.View
                 className="absolute inset-0 overflow-hidden rounded-[24px] border border-border"
                 style={[Shadows.card, nextCardStyle, { backgroundColor: '#232323' }]}>
-                <DiscoveryCardContent card={nextItem} scrollEnabled={false} />
+                <DiscoveryCardContent
+                  bottomInset={FLOATING_ACTIONS_CONTENT_PADDING}
+                  card={nextItem}
+                  scrollEnabled={false}
+                />
               </Animated.View>
             ) : null}
 
@@ -1573,7 +1592,10 @@ export function DiscoveryDeck() {
               <Animated.View
                 className="absolute inset-0 overflow-hidden rounded-[24px] border border-border"
                 style={[Shadows.card, topCardStyle, { backgroundColor: '#232323' }]}>
-                <DiscoveryCardContent card={currentItem} />
+                <DiscoveryCardContent
+                  bottomInset={FLOATING_ACTIONS_CONTENT_PADDING}
+                  card={currentItem}
+                />
 
                 <Animated.View
                   className="absolute left-4 top-5 rounded-full border border-signal bg-signal-tint px-3 py-1.5"
@@ -1593,38 +1615,48 @@ export function DiscoveryDeck() {
               </Animated.View>
             </GestureDetector>
           </View>
-        </View>
 
-        <View className="flex-row items-center justify-center gap-4">
-          <DeckActionButton
-            color="#EF4444"
-            disabled={isSubmitting}
-            icon="close"
-            onPress={() => beginSwipe('left')}
-            size="medium"
-          />
-          <DeckActionButton
-            color="#FFCD38"
-            disabled={history.length === 0 || isSubmitting}
-            icon="refresh"
-            onPress={handleRewind}
-            size="small"
-          />
-          <DeckActionButton
-            color="#FF9A3E"
-            disabled={isSubmitting}
-            icon="flash"
-            onPress={handleSuperLike}
-            size="large"
-            variant="filled"
-          />
-          <DeckActionButton
-            color="#10B981"
-            disabled={isSubmitting}
-            icon="checkmark"
-            onPress={() => beginSwipe('right')}
-            size="medium"
-          />
+          <View
+            className="absolute inset-x-0 z-10 items-center"
+            pointerEvents="box-none"
+            style={{ bottom: FLOATING_ACTIONS_BOTTOM_OFFSET }}>
+            <View
+              className="flex-row items-center justify-center gap-4 rounded-full border px-4 py-3"
+              style={{
+                backgroundColor: 'rgba(20, 22, 28, 0.84)',
+                borderColor: 'rgba(255, 255, 255, 0.08)',
+              }}>
+              <DeckActionButton
+                color="#EF4444"
+                disabled={isSubmitting}
+                icon="close"
+                onPress={() => beginSwipe('left')}
+                size="medium"
+              />
+              <DeckActionButton
+                color="#FFCD38"
+                disabled={history.length === 0 || isSubmitting}
+                icon="refresh"
+                onPress={handleRewind}
+                size="small"
+              />
+              <DeckActionButton
+                color="#FF9A3E"
+                disabled={isSubmitting}
+                icon="flash"
+                onPress={handleSuperLike}
+                size="large"
+                variant="filled"
+              />
+              <DeckActionButton
+                color="#10B981"
+                disabled={isSubmitting}
+                icon="checkmark"
+                onPress={() => beginSwipe('right')}
+                size="medium"
+              />
+            </View>
+          </View>
         </View>
 
         {actionError ? (
