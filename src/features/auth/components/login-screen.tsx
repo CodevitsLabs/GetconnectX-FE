@@ -461,9 +461,7 @@ export function LoginScreen() {
                 </AppText>
               </Pressable>
               <Pressable
-                onPress={() =>
-                  setStatusMessage('Forgot password flow is not connected yet.')
-                }>
+                onPress={() => router.push('/forgot-password')}>
                 <AppText
                   variant="bodyStrong"
                   className="text-[13px]"

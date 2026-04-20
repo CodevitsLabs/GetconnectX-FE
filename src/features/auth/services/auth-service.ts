@@ -28,6 +28,8 @@ import type {
   AuthNextStep,
   AuthPhase,
   AuthSession,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
   AuthSuccessResponse,
   AuthSupabaseSessionPayload,
   AuthUser,
@@ -60,6 +62,7 @@ const USER_KEY = 'connectx.auth.user';
 const AUTH_API = {
   EMAIL_RESEND_OTP: '/api/v1/auth/email/resend-otp',
   EMAIL_SEND_OTP: '/api/v1/auth/email/send-otp',
+  FORGOT_PASSWORD: '/api/v1/auth/forgot-password',
   GOOGLE_OAUTH_VERIFY: '/api/v1/auth/oauth/google/verify-token',
   LOGIN: '/api/v1/auth/login/password',
   LOGIN_OTP_SEND: '/api/v1/auth/login/otp/send',
@@ -842,6 +845,24 @@ export async function loginWithApi(
     response,
     session,
   };
+}
+
+export async function forgotPassword(
+  payload: ForgotPasswordPayload
+): Promise<ForgotPasswordResponse> {
+  if (isMockAuthFlowEnabled()) {
+    return {
+      status: 'success',
+      message: 'Link reset password telah dikirim ke email Anda. Berlaku selama 60 menit.',
+    };
+  }
+
+  return apiFetch<ForgotPasswordResponse>(AUTH_API.FORGOT_PASSWORD, {
+    method: 'POST',
+    body: {
+      email: normalizeEmail(payload.email),
+    } as ForgotPasswordPayload as any,
+  });
 }
 
 export async function sendLoginOtp(): Promise<

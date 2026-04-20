@@ -77,6 +77,10 @@ export type RegisterPayload = {
   fcm_token: string;
 };
 
+export type ForgotPasswordPayload = {
+  email: string;
+};
+
 export type VerifyEmailPayload = {
   otp_code: string;
 };
@@ -140,6 +144,11 @@ export type LoginOtpMessageResponse = {
   data: [];
   message: string;
   next_step?: string | null;
+  status: 'success';
+};
+
+export type ForgotPasswordResponse = {
+  message: string;
   status: 'success';
 };
 
