@@ -1,6 +1,7 @@
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Redirect, Stack, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
 import {
   Keyboard,
@@ -348,6 +349,26 @@ export function RegisterScreen() {
                 label={isSubmitting ? 'Creating account...' : 'Create account'}
                 onPress={handleRegister}
               />
+              <AppText
+                align="center"
+                className="text-[12px] leading-[18px] px-4"
+                style={{ color: TEXT_SOFT }}>
+                By creating an account, you agree to our{' '}
+                <AppText
+                  className="text-[12px]"
+                  style={{ color: ACCENT }}
+                  onPress={() => WebBrowser.openBrowserAsync('https://getconnectx.app/terms')}>
+                  Terms of Service
+                </AppText>{' '}
+                and{' '}
+                <AppText
+                  className="text-[12px]"
+                  style={{ color: ACCENT }}
+                  onPress={() => WebBrowser.openBrowserAsync('https://getconnectx.app/privacy')}>
+                  Privacy Policy
+                </AppText>
+                .
+              </AppText>
             </Animated.View>
 
             <View className="flex-row items-center justify-center gap-2 pt-2">
