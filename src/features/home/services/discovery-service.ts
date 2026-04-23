@@ -9,6 +9,7 @@ import type {
   DiscoveryCardFeedInput,
   DiscoveryCardsRequest,
   DiscoveryCardsResponse,
+  DiscoveryFilterOptionsResponse,
   DiscoveryMode,
   DiscoverySwipeHistoryEntry,
   RewindActionRequest,
@@ -18,6 +19,11 @@ import type {
   SwipeActionRequest,
   SwipeActionResponse,
 } from '../types/discovery.types';
+
+const mockDiscoveryFilterOptionsResponsesByMode = require('../mock/discovery-filter-options.responses.json') as Record<
+  DiscoveryMode,
+  DiscoveryFilterOptionsResponse
+>;
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
@@ -82,6 +88,7 @@ export function isDiscoveryCardsMockEnabled() {
 
 export const DISCOVERY_API = {
   CARDS: '/api/v1/discovery/cards',
+  FILTER_OPTIONS: '/api/v1/discovery/filter-options',
   ACTION: (targetId: string) => `/api/v1/discovery/cards/${targetId}/action`,
   REWIND: '/api/v1/discovery/swipes/rewind',
   SPOTLIGHT_ACTIVATE: '/api/v1/discovery/spotlight/activate',
@@ -121,6 +128,12 @@ function buildDiscoveryCardsPayload({
   return payload;
 }
 
+export function getMockDiscoveryFilterOptionsResponse(mode: DiscoveryMode) {
+  const response = mockDiscoveryFilterOptionsResponsesByMode[mode];
+
+  return JSON.parse(JSON.stringify(response)) as DiscoveryFilterOptionsResponse;
+}
+
 export async function fetchDiscoveryCards(input: DiscoveryCardFeedInput = {}) {
   const payload = buildDiscoveryCardsPayload(input);
 
@@ -136,6 +149,20 @@ export async function fetchDiscoveryCards(input: DiscoveryCardFeedInput = {}) {
     body: payload as unknown as BodyInit,
     method: 'POST',
   });
+}
+
+export async function fetchDiscoveryFilterOptions(mode: DiscoveryMode) {
+  if (isExpoDevModeEnabled()) {
+    console.log('[Discovery] fetch filter options mode', mode);
+  }
+
+  if (isDiscoveryCardsMockEnabled()) {
+    return getMockDiscoveryFilterOptionsResponse(mode);
+  }
+
+  return apiFetch<DiscoveryFilterOptionsResponse>(
+    `${DISCOVERY_API.FILTER_OPTIONS}?mode=${encodeURIComponent(mode)}`
+  );
 }
 
 export async function postSwipeAction(targetId: string, payload: SwipeActionRequest) {

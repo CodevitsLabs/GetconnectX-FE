@@ -2,11 +2,13 @@ import {
   InfiniteData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
 import {
   fetchDiscoveryCards,
+  fetchDiscoveryFilterOptions,
   getMockDiscoveryCardsResponse,
   isDiscoveryCardsMockEnabled,
   postRewindAction,
@@ -16,6 +18,8 @@ import type {
   DiscoveryAppliedFilters,
   DiscoveryCardsRequest,
   DiscoveryCardsResponse,
+  DiscoveryFilterOptionsResponse,
+  DiscoveryMode,
   DiscoverySwipeHistoryEntry,
   RewindActionRequest,
   RewindActionSuccessResponse,
@@ -28,10 +32,12 @@ const MAX_LIMIT = 20;
 export const discoveryQueryKeys = {
   all: ['discovery'] as const,
   cards: ['discovery', 'cards'] as const,
+  filterOptions: ['discovery', 'filter-options'] as const,
   feed: (
     request: Omit<DiscoveryCardsRequest, 'pagination'>,
     limit: number
   ) => ['discovery', 'cards', request, limit] as const,
+  options: (mode: DiscoveryMode) => ['discovery', 'filter-options', mode] as const,
 };
 
 function normalizeLimit(limit?: number) {
@@ -90,6 +96,15 @@ export function useDiscoveryCards(
     getNextPageParam: (lastPage) =>
       lastPage.data.hasMore ? (lastPage.data.nextCursor ?? undefined) : undefined,
     staleTime: shouldSeedMockData ? Number.POSITIVE_INFINITY : 0,
+  });
+}
+
+export function useDiscoveryFilterOptions(mode: DiscoveryMode, enabled = true) {
+  return useQuery<DiscoveryFilterOptionsResponse>({
+    enabled,
+    queryKey: discoveryQueryKeys.options(mode),
+    queryFn: () => fetchDiscoveryFilterOptions(mode),
+    staleTime: isDiscoveryCardsMockEnabled() ? Number.POSITIVE_INFINITY : 0,
   });
 }
 

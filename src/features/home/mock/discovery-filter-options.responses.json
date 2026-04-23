@@ -1,0 +1,249 @@
+{
+  "finding_cofounder": {
+    "success": true,
+    "message": "Discovery filter options fetched successfully",
+    "data": {
+      "mode": "finding_cofounder",
+      "industries": [
+        {
+          "id": "grp_industry_core_technology",
+          "label": "Core Technology",
+          "options": [
+            { "id": "ind_ai", "label": "AI" },
+            { "id": "ind_web3", "label": "Web3" }
+          ]
+        },
+        {
+          "id": "grp_industry_business_software",
+          "label": "Business Software",
+          "options": [
+            { "id": "ind_fintech", "label": "Fintech" },
+            { "id": "ind_edtech", "label": "EdTech" },
+            { "id": "ind_saas", "label": "SaaS" }
+          ]
+        },
+        {
+          "id": "grp_industry_applied_sectors",
+          "label": "Applied Sectors",
+          "options": [
+            { "id": "ind_healthtech", "label": "Healthtech" }
+          ]
+        }
+      ],
+      "skills": [],
+      "roles": [],
+      "languages": [
+        {
+          "id": "grp_language_global",
+          "label": "Languages",
+          "options": [
+            { "id": "lang_en", "label": "English" },
+            { "id": "lang_id", "label": "Bahasa Indonesia" },
+            { "id": "lang_zh", "label": "Mandarin Chinese" },
+            { "id": "lang_ja", "label": "Japanese" },
+            { "id": "lang_ko", "label": "Korean" },
+            { "id": "lang_es", "label": "Spanish" }
+          ]
+        }
+      ]
+    }
+  },
+  "building_team": {
+    "success": true,
+    "message": "Discovery filter options fetched successfully",
+    "data": {
+      "mode": "building_team",
+      "industries": [
+        {
+          "id": "grp_industry_core_technology",
+          "label": "Core Technology",
+          "options": [
+            { "id": "ind_ai", "label": "AI" },
+            { "id": "ind_web3", "label": "Web3" }
+          ]
+        },
+        {
+          "id": "grp_industry_business_software",
+          "label": "Business Software",
+          "options": [
+            { "id": "ind_fintech", "label": "Fintech" },
+            { "id": "ind_saas", "label": "SaaS" }
+          ]
+        },
+        {
+          "id": "grp_industry_applied_sectors",
+          "label": "Applied Sectors",
+          "options": [
+            { "id": "ind_healthtech", "label": "Healthtech" },
+            { "id": "ind_edtech", "label": "EdTech" }
+          ]
+        }
+      ],
+      "skills": [
+        {
+          "id": "grp_skill_engineering",
+          "label": "Engineering",
+          "options": [
+            { "id": "skill_react", "label": "React" },
+            { "id": "skill_python", "label": "Python" }
+          ]
+        },
+        {
+          "id": "grp_skill_product_design",
+          "label": "Product & Design",
+          "options": [
+            { "id": "skill_figma", "label": "Figma" }
+          ]
+        },
+        {
+          "id": "grp_skill_growth_gtm",
+          "label": "Growth & GTM",
+          "options": [
+            { "id": "skill_growth", "label": "Growth" },
+            { "id": "skill_seo", "label": "SEO" },
+            { "id": "skill_salesforce", "label": "Salesforce" }
+          ]
+        }
+      ],
+      "roles": [
+        {
+          "id": "grp_role_product_engineering",
+          "label": "Product & Engineering",
+          "options": [
+            { "id": "role_engineer", "label": "Engineer" },
+            { "id": "role_product", "label": "Product" },
+            { "id": "role_designer", "label": "Designer" },
+            { "id": "role_ai_ml", "label": "AI / ML" }
+          ]
+        },
+        {
+          "id": "grp_role_revenue_growth",
+          "label": "Revenue & Growth",
+          "options": [
+            { "id": "role_sales", "label": "Sales" },
+            { "id": "role_marketing", "label": "Marketing" },
+            { "id": "role_growth", "label": "Growth" }
+          ]
+        },
+        {
+          "id": "grp_role_ops_finance",
+          "label": "Operations & Finance",
+          "options": [
+            { "id": "role_operations", "label": "Operations" },
+            { "id": "role_finance", "label": "Finance" }
+          ]
+        }
+      ],
+      "languages": [
+        {
+          "id": "grp_language_global",
+          "label": "Languages",
+          "options": [
+            { "id": "lang_en", "label": "English" },
+            { "id": "lang_id", "label": "Bahasa Indonesia" },
+            { "id": "lang_zh", "label": "Mandarin Chinese" },
+            { "id": "lang_ja", "label": "Japanese" },
+            { "id": "lang_ko", "label": "Korean" },
+            { "id": "lang_es", "label": "Spanish" }
+          ]
+        }
+      ]
+    }
+  },
+  "explore_startups": {
+    "success": true,
+    "message": "Discovery filter options fetched successfully",
+    "data": {
+      "mode": "explore_startups",
+      "industries": [
+        {
+          "id": "grp_industry_core_technology",
+          "label": "Core Technology",
+          "options": [
+            { "id": "ind_ai", "label": "AI" },
+            { "id": "ind_web3", "label": "Web3" }
+          ]
+        },
+        {
+          "id": "grp_industry_business_software",
+          "label": "Business Software",
+          "options": [
+            { "id": "ind_fintech", "label": "Fintech" },
+            { "id": "ind_saas", "label": "SaaS" }
+          ]
+        },
+        {
+          "id": "grp_industry_applied_sectors",
+          "label": "Applied Sectors",
+          "options": [
+            { "id": "ind_healthtech", "label": "Healthtech" },
+            { "id": "ind_edtech", "label": "EdTech" }
+          ]
+        }
+      ],
+      "skills": [],
+      "roles": [
+        {
+          "id": "grp_role_product_engineering",
+          "label": "Product & Engineering",
+          "options": [
+            { "id": "role_engineer", "label": "Engineer" },
+            { "id": "role_designer", "label": "Designer" }
+          ]
+        },
+        {
+          "id": "grp_role_revenue_growth",
+          "label": "Revenue & Growth",
+          "options": [
+            { "id": "role_sales", "label": "Sales" },
+            { "id": "role_marketing", "label": "Marketing" }
+          ]
+        },
+        {
+          "id": "grp_role_ops_finance",
+          "label": "Operations & Finance",
+          "options": [
+            { "id": "role_operations", "label": "Operations" }
+          ]
+        }
+      ],
+      "languages": []
+    }
+  },
+  "joining_startups": {
+    "success": true,
+    "message": "Discovery filter options fetched successfully",
+    "data": {
+      "mode": "joining_startups",
+      "industries": [
+        {
+          "id": "grp_industry_core_technology",
+          "label": "Core Technology",
+          "options": [
+            { "id": "ind_ai", "label": "AI" },
+            { "id": "ind_web3", "label": "Web3" }
+          ]
+        },
+        {
+          "id": "grp_industry_business_software",
+          "label": "Business Software",
+          "options": [
+            { "id": "ind_fintech", "label": "Fintech" },
+            { "id": "ind_saas", "label": "SaaS" }
+          ]
+        },
+        {
+          "id": "grp_industry_applied_sectors",
+          "label": "Applied Sectors",
+          "options": [
+            { "id": "ind_healthtech", "label": "Healthtech" },
+            { "id": "ind_edtech", "label": "EdTech" }
+          ]
+        }
+      ],
+      "skills": [],
+      "roles": [],
+      "languages": []
+    }
+  }
+}

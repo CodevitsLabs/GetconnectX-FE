@@ -31,10 +31,12 @@ type DiscoveryFilterSheetProps = {
   initialAppliedMode: DiscoveryMode | null;
   initialFilters: DiscoveryAppliedFilters;
   isApplying?: boolean;
+  isLoadingOptions?: boolean;
   onApply: (mode: DiscoveryMode, filters: DiscoveryAppliedFilters) => void;
   onClose: () => void;
   onModeChange: (mode: DiscoveryMode) => void;
   onReset: () => void;
+  optionsErrorMessage?: string | null;
   sections: DiscoveryFilterSection[];
   visible: boolean;
 };
@@ -568,6 +570,17 @@ function filterOptionsBySearch(
   return options.filter((option) => option.label.toLowerCase().includes(normalizedSearch));
 }
 
+function getEmptyOptionsMessage(
+  options: DiscoveryFilterOption[] | undefined,
+  searchTerm: string
+) {
+  if (searchTerm.trim().length > 0 && (options?.length ?? 0) > 0) {
+    return 'No matching options found.';
+  }
+
+  return 'No options available right now.';
+}
+
 export function DiscoveryFilterSheet({
   currentMode,
   errorMessage,
@@ -576,10 +589,12 @@ export function DiscoveryFilterSheet({
   initialAppliedMode,
   initialFilters,
   isApplying = false,
+  isLoadingOptions = false,
   onApply,
   onClose,
   onModeChange,
   sections,
+  optionsErrorMessage,
   visible,
 }: DiscoveryFilterSheetProps) {
   const insets = useSafeAreaInsets();
@@ -821,6 +836,11 @@ export function DiscoveryFilterSheet({
               value={searchTerm}
             />
           ) : null}
+          {visibleOptions.length === 0 ? (
+            <AppText className="text-[13px]" tone="muted">
+              {getEmptyOptionsMessage(field.options, searchTerm)}
+            </AppText>
+          ) : null}
           {field.ui.component === 'chips' ? (
             <View className="flex-row flex-wrap gap-2">
               {visibleOptions.map((option) => {
@@ -894,6 +914,11 @@ export function DiscoveryFilterSheet({
               }
               value={searchTerm}
             />
+          ) : null}
+          {visibleOptions.length === 0 ? (
+            <AppText className="text-[13px]" tone="muted">
+              {getEmptyOptionsMessage(section.options, searchTerm)}
+            </AppText>
           ) : null}
           <View className="flex-row flex-wrap gap-2">
             {visibleOptions.map((option) => {
@@ -991,6 +1016,13 @@ export function DiscoveryFilterSheet({
             </AppCard>
           ) : null}
 
+          {optionsErrorMessage ? (
+            <AppCard tone="signal" className="mb-4 gap-1.5 rounded-[18px] border-white/10 bg-[#2C2C2C] p-3">
+              <AppText variant="subtitle">Filter options unavailable</AppText>
+              <AppText tone="muted">{optionsErrorMessage}</AppText>
+            </AppCard>
+          ) : null}
+
           <ScrollView contentContainerStyle={{ gap: 20, paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
             <View className="gap-4">
               <AppText className="text-[12px] tracking-[1.6px]" tone="muted" variant="label">
@@ -1011,36 +1043,47 @@ export function DiscoveryFilterSheet({
               </View>
             </View>
 
-            <View className="gap-1">
-              {basicSections.map((section) => renderAccordionSection(section))}
-            </View>
-
-            {advancedSections.length > 0 ? (
-              <View className="gap-3">
-                <AppText className="text-[12px] tracking-[1.8px]" tone="signal" variant="label">
-                  ADVANCED FILTERS
+            {isLoadingOptions ? (
+              <AppCard tone="default" className="gap-1.5 rounded-[18px] border-white/10 bg-[#2C2C2C] p-4">
+                <AppText variant="subtitle">Loading filter options...</AppText>
+                <AppText tone="muted">
+                  Pulling the latest industries, skills, roles, and languages for this goal.
                 </AppText>
+              </AppCard>
+            ) : (
+              <>
                 <View className="gap-1">
-                  {advancedSections.map((section) => renderAccordionSection(section))}
+                  {basicSections.map((section) => renderAccordionSection(section))}
                 </View>
-              </View>
-            ) : null}
+
+                {advancedSections.length > 0 ? (
+                  <View className="gap-3">
+                    <AppText className="text-[12px] tracking-[1.8px]" tone="signal" variant="label">
+                      ADVANCED FILTERS
+                    </AppText>
+                    <View className="gap-1">
+                      {advancedSections.map((section) => renderAccordionSection(section))}
+                    </View>
+                  </View>
+                ) : null}
+              </>
+            )}
           </ScrollView>
 
           <View className="mt-5">
             <Pressable
-              disabled={isApplying}
+              disabled={isApplying || isLoadingOptions}
               onPress={() => onApply(currentMode, stripDisabledDiscoveryFilters(currentDraft, sections, hasConnectXPro))}
               className="h-14 flex-row items-center justify-center gap-3 rounded-[18px]"
               style={{
                 backgroundColor: '#FF9A3E',
                 borderCurve: 'continuous',
-                opacity: isApplying ? 0.5 : 1,
+                opacity: isApplying || isLoadingOptions ? 0.5 : 1,
               }}
               android_ripple={{ color: 'rgba(0,0,0,0.12)' }}>
               <AppText variant="subtitle" className="text-[16px] text-[#1A1208]">
                 <Ionicons color="" name="flash-outline" size={18} />
-                {isApplying ? 'Generating...' : 'Generate Candidate'}
+                {isApplying ? 'Generating...' : isLoadingOptions ? 'Loading filters...' : 'Generate Candidate'}
               </AppText>
             </Pressable>
           </View>

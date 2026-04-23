@@ -1,5 +1,7 @@
 import type {
+  DiscoveryFilterCatalogGroup,
   DiscoveryFilterSection,
+  DiscoveryFilterOptionsResponse,
   DiscoveryGoalId,
   DiscoveryMode,
 } from '../types/discovery.types';
@@ -662,6 +664,70 @@ export const discoveryFilterSectionsByMode: Record<DiscoveryMode, DiscoveryFilte
   ],
 };
 
-export function getDiscoveryFilterSections(mode: DiscoveryMode) {
-  return discoveryFilterSectionsByMode[mode];
+const CATALOG_SECTION_IDS = new Set(['industryIds', 'skillIds', 'roleNeededIds']);
+const CATALOG_FIELD_IDS = new Set(['languageIds']);
+
+function cloneSection(section: DiscoveryFilterSection): DiscoveryFilterSection {
+  return {
+    ...section,
+    options: section.options ? [...section.options] : undefined,
+    fields: section.fields?.map((field) => ({
+      ...field,
+      options: field.options ? [...field.options] : undefined,
+    })),
+  };
+}
+
+export function flattenDiscoveryFilterCatalogGroups(groups: DiscoveryFilterCatalogGroup[]) {
+  return groups.flatMap((group) => group.options);
+}
+
+function getCatalogOptions(
+  sectionOrFieldId: string,
+  filterOptionsResponse?: DiscoveryFilterOptionsResponse
+) {
+  if (!filterOptionsResponse) {
+    return [];
+  }
+
+  switch (sectionOrFieldId) {
+    case 'industryIds':
+      return flattenDiscoveryFilterCatalogGroups(filterOptionsResponse.data.industries);
+    case 'skillIds':
+      return flattenDiscoveryFilterCatalogGroups(filterOptionsResponse.data.skills);
+    case 'roleNeededIds':
+      return flattenDiscoveryFilterCatalogGroups(filterOptionsResponse.data.roles);
+    case 'languageIds':
+      return flattenDiscoveryFilterCatalogGroups(filterOptionsResponse.data.languages);
+    default:
+      return [];
+  }
+}
+
+export function getDiscoveryFilterSections(
+  mode: DiscoveryMode,
+  filterOptionsResponse?: DiscoveryFilterOptionsResponse
+) {
+  return discoveryFilterSectionsByMode[mode].map((section) => {
+    const nextSection = cloneSection(section);
+
+    if (CATALOG_SECTION_IDS.has(nextSection.id)) {
+      nextSection.options = getCatalogOptions(nextSection.id, filterOptionsResponse);
+    }
+
+    if (nextSection.fields?.length) {
+      nextSection.fields = nextSection.fields.map((field) => {
+        if (!CATALOG_FIELD_IDS.has(field.id)) {
+          return field;
+        }
+
+        return {
+          ...field,
+          options: getCatalogOptions(field.id, filterOptionsResponse),
+        };
+      });
+    }
+
+    return nextSection;
+  });
 }

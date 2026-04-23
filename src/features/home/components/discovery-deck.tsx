@@ -24,6 +24,7 @@ import { getDiscoveryFilterSections } from '../config/discovery-filters';
 import {
   countAppliedDiscoveryFilters,
   useDiscoveryCards,
+  useDiscoveryFilterOptions,
   useRewindAction,
   useSwipeAction,
 } from '../hooks/use-discovery';
@@ -932,7 +933,20 @@ export function DiscoveryDeck() {
   const matchToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRequestedDeviceCoordinatesRef = React.useRef(false);
 
-  const filterSections = React.useMemo(() => getDiscoveryFilterSections(sheetMode), [sheetMode]);
+  const filterOptionsQuery = useDiscoveryFilterOptions(sheetMode);
+  const isFilterOptionsLoading =
+    !filterOptionsQuery.data && (filterOptionsQuery.isLoading || filterOptionsQuery.isFetching);
+  const filterOptionsErrorMessage = React.useMemo(
+    () =>
+      filterOptionsQuery.error
+        ? getErrorMessage(filterOptionsQuery.error, 'Unable to load filter options right now.')
+        : null,
+    [filterOptionsQuery.error]
+  );
+  const filterSections = React.useMemo(
+    () => getDiscoveryFilterSections(sheetMode, filterOptionsQuery.data),
+    [filterOptionsQuery.data, sheetMode]
+  );
   const goalOptions = getGoalOptions(filterSections, sheetMode);
 
   const appliedSections = React.useMemo(
@@ -1472,10 +1486,12 @@ export function DiscoveryDeck() {
       initialAppliedMode={appliedMode}
       initialFilters={appliedFilters}
       isApplying={isApplyingFilters}
+      isLoadingOptions={isFilterOptionsLoading}
       onApply={handleApplyFilters}
       onClose={handleCloseFilters}
       onModeChange={handleModeChange}
       onReset={handleResetFilters}
+      optionsErrorMessage={filterOptionsErrorMessage}
       sections={filterSections}
       visible={isFilterVisible}
     />

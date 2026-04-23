@@ -180,6 +180,29 @@ export type DiscoveryFilterOption = {
   description?: string;
 };
 
+export type DiscoveryFilterCatalogOption = {
+  id: string;
+  label: string;
+};
+
+export type DiscoveryFilterCatalogGroup = {
+  id: string;
+  label: string;
+  options: DiscoveryFilterCatalogOption[];
+};
+
+export type DiscoveryFilterOptionsResponse = {
+  success: true;
+  message: string;
+  data: {
+    mode: DiscoveryMode;
+    industries: DiscoveryFilterCatalogGroup[];
+    skills: DiscoveryFilterCatalogGroup[];
+    roles: DiscoveryFilterCatalogGroup[];
+    languages: DiscoveryFilterCatalogGroup[];
+  };
+};
+
 export type DiscoveryEntitlement = 'connectx_pro';
 
 export type DiscoveryFilterAccess = {
