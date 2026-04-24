@@ -11,9 +11,8 @@ import { Colors } from '@shared/theme';
 import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 import { SplashScreen } from './splash-screen';
-import { ACCENT } from './verify-otp-screen';
 
-const CONNECTX_LOGO = require('../../../../assets/images/connectx-logo.png');
+const ACCENT = '#FF9A3E';
 const ONBOARDING_IMAGE = require('../../../../assets/images/onboarding.png');
 
 export function WelcomeScreen() {

@@ -1,5 +1,4 @@
 import { AntDesign, Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -22,8 +22,6 @@ import { useAuth } from '../hooks/use-auth';
 import { forgotPassword } from '../services/auth-service';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 import { getEmailError } from '../utils/auth-validation';
-
-const CONNECTX_LOGO = require('../../../../assets/images/connectx-logo.png');
 
 const CANVAS_BG = '#212121';
 const ACCENT = '#FF9A3E';
@@ -99,32 +97,6 @@ function DarkField({
   );
 }
 
-function LogoHero() {
-  return (
-    <View className="items-center gap-3">
-      <View
-        className="h-16 w-16 items-center justify-center rounded-[20px]"
-        style={{
-          backgroundColor: ACCENT_SOFT,
-          borderCurve: 'continuous',
-        }}>
-        <View
-          className="h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] bg-white"
-          style={{ borderCurve: 'continuous' }}>
-          <Image
-            source={CONNECTX_LOGO}
-            style={{ width: 34, height: 34 }}
-            contentFit="contain"
-          />
-        </View>
-      </View>
-      <AppText variant="bodyStrong" className="text-[16px] text-white">
-        ConnectX
-      </AppText>
-    </View>
-  );
-}
-
 type BackToLoginButtonProps = {
   className?: string;
   label: string;
@@ -144,6 +116,7 @@ function BackToLoginButton({ className, label, onPress }: BackToLoginButtonProps
 
 export function ForgotPasswordScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { authPhase, isHydrated, session } = useAuth();
   const [email, setEmail] = React.useState('');
   const [emailError, setEmailError] = React.useState<string | null>(null);
@@ -214,68 +187,51 @@ export function ForgotPasswordScreen() {
           className="flex-1"
           contentContainerStyle={{
             flexGrow: 1,
+            justifyContent: 'space-between',
             paddingHorizontal: 24,
-            paddingTop: 72,
-            paddingBottom: 40,
-            gap: 24,
+            paddingTop: Math.max(insets.top + 32, 64),
+            paddingBottom: Math.max(insets.bottom + 24, 40),
+            gap: 32,
           }}
           keyboardShouldPersistTaps="handled">
-          <Animated.View entering={FadeIn.duration(360)}>
-            <LogoHero />
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInDown.delay(80).duration(360)}
-            className="items-center gap-2 pt-2">
-            <AppText
-              align="center"
-              variant="hero"
-              className="text-[32px] leading-[38px]"
-              style={{ color: ACCENT }}>
-              {successMessage ? 'Check your email' : 'Forgot password'}
-            </AppText>
-            <AppText
-              align="center"
-              className="text-[14px] leading-[20px] text-text-muted">
-              {successMessage
-                ? 'Use the reset link from your email to continue on the website.'
-                : 'Enter your email and we will send a reset password link.'}
-            </AppText>
-          </Animated.View>
-
-          {successMessage ? (
+          <View className="gap-8">
             <Animated.View
-              entering={FadeInUp.delay(140).duration(360)}
-              className="gap-6 rounded-[24px] border px-5 py-6"
-              style={{
-                backgroundColor: FIELD_BG,
-                borderColor: FIELD_BORDER,
-                borderCurve: 'continuous',
-              }}>
-              <View className="items-center gap-4">
-                <View
-                  className="h-14 w-14 items-center justify-center rounded-full"
-                  style={{ backgroundColor: ACCENT_SOFT }}>
-                  <Ionicons color={ACCENT} name="mail-open-outline" size={26} />
-                </View>
-                <AppText align="center" className="text-[15px] leading-[22px] text-white">
-                  {successMessage}
-                </AppText>
-              </View>
-
-              <Pressable
-                onPress={handleBackToLogin}
-                className="h-14 flex-row items-center justify-center gap-3 rounded-[18px]"
-                style={{ backgroundColor: ACCENT, borderCurve: 'continuous' }}
-                android_ripple={{ color: 'rgba(0,0,0,0.12)' }}>
-                <AppText variant="subtitle" className="text-[16px] text-[#1A1208]">
-                  Back to login
-                </AppText>
-                <AntDesign color="#1A1208" name="arrow-right" size={18} />
-              </Pressable>
+              entering={FadeInDown.delay(80).duration(360)}
+              className="gap-2">
+              <AppText
+                variant="hero"
+                className="text-[32px] leading-[38px]"
+                style={{ color: ACCENT }}>
+                {successMessage ? 'Check your email' : 'Forgot password'}
+              </AppText>
+              <AppText className="text-[14px] leading-[20px] text-text-muted">
+                {successMessage
+                  ? 'Use the reset link from your email to continue on the website.'
+                  : 'Enter your email and we will send a reset password link.'}
+              </AppText>
             </Animated.View>
-          ) : (
-            <>
+
+            {successMessage ? (
+              <Animated.View
+                entering={FadeInUp.delay(140).duration(360)}
+                className="gap-6 rounded-[24px] border px-5 py-6"
+                style={{
+                  backgroundColor: FIELD_BG,
+                  borderColor: FIELD_BORDER,
+                  borderCurve: 'continuous',
+                }}>
+                <View className="items-center gap-4">
+                  <View
+                    className="h-14 w-14 items-center justify-center rounded-full"
+                    style={{ backgroundColor: ACCENT_SOFT }}>
+                    <Ionicons color={ACCENT} name="mail-open-outline" size={26} />
+                  </View>
+                  <AppText align="center" className="text-[15px] leading-[22px] text-white">
+                    {successMessage}
+                  </AppText>
+                </View>
+              </Animated.View>
+            ) : (
               <Animated.View
                 entering={FadeInUp.delay(140).duration(360)}
                 className="gap-3">
@@ -293,14 +249,29 @@ export function ForgotPasswordScreen() {
                   value={email}
                 />
               </Animated.View>
+            )}
+          </View>
 
-              {statusMessage ? (
-                <AppText align="center" selectable tone="danger">
-                  {statusMessage}
+          <Animated.View entering={FadeIn.delay(220).duration(360)} className="gap-5">
+            {statusMessage ? (
+              <AppText align="center" selectable tone="danger">
+                {statusMessage}
+              </AppText>
+            ) : null}
+
+            {successMessage ? (
+              <Pressable
+                onPress={handleBackToLogin}
+                className="h-14 flex-row items-center justify-center gap-3 rounded-[18px]"
+                style={{ backgroundColor: ACCENT, borderCurve: 'continuous' }}
+                android_ripple={{ color: 'rgba(0,0,0,0.12)' }}>
+                <AppText variant="subtitle" className="text-[16px] text-[#1A1208]">
+                  Back to login
                 </AppText>
-              ) : null}
-
-              <Animated.View entering={FadeIn.delay(220).duration(360)} className="gap-5">
+                <AntDesign color="#1A1208" name="arrow-right" size={18} />
+              </Pressable>
+            ) : (
+              <>
                 <Pressable
                   disabled={isSubmitting}
                   onPress={handleSubmit}
@@ -323,9 +294,9 @@ export function ForgotPasswordScreen() {
                 </Pressable>
 
                 <BackToLoginButton label="Back to login" onPress={handleBackToLogin} />
-              </Animated.View>
-            </>
-          )}
+              </>
+            )}
+          </Animated.View>
         </ScrollView>
       </Pressable>
     </KeyboardAvoidingView>

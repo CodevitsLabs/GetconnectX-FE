@@ -1,5 +1,4 @@
 import { AntDesign, Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@shared/components';
 import { ApiError } from '@shared/services/api';
@@ -22,10 +22,7 @@ import { useAuth } from '../hooks/use-auth';
 import { getRouteForAuthPhase } from '../utils/auth-routing';
 import { getEmailError, getPasswordError } from '../utils/auth-validation';
 
-const CONNECTX_LOGO = require('../../../../assets/images/connectx-logo.png');
-
 const CANVAS_BG = '#212121';
-const HEADER_BG = '#232323';
 const ACCENT = '#FF9A3E';
 const FIELD_BG = '#292929';
 const FIELD_BORDER = '#383838';
@@ -97,37 +94,6 @@ function DarkField({
   );
 }
 
-function AuthChrome() {
-  return (
-    <View
-      className="flex-row items-center gap-2 px-5 pt-16 pb-5"
-      style={{ backgroundColor: HEADER_BG }}>
-      <View
-        className="h-8 w-8 items-center justify-center overflow-hidden rounded-[9px] bg-white"
-        style={{ borderCurve: 'continuous' }}>
-        <Image
-          source={CONNECTX_LOGO}
-          style={{ width: 22, height: 22 }}
-          contentFit="contain"
-        />
-      </View>
-      <AppText variant="bodyStrong" className="text-white text-[13px]">
-        ConnectX
-      </AppText>
-      <View
-        className="rounded-full border px-2 py-[4px]"
-        style={{ borderColor: ACCENT }}>
-        <AppText
-          variant="label"
-          className="text-[9px]"
-          style={{ color: ACCENT, letterSpacing: 0.5 }}>
-          V1 FREE
-        </AppText>
-      </View>
-    </View>
-  );
-}
-
 function PrimaryCta({
   disabled,
   label,
@@ -157,6 +123,7 @@ function PrimaryCta({
 
 export function RegisterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { authPhase, isHydrated, register, session } = useAuth();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -244,106 +211,108 @@ export function RegisterScreen() {
       style={{ backgroundColor: CANVAS_BG }}>
       <Stack.Screen options={{ headerShown: false }} />
       <View className="flex-1" style={{ backgroundColor: CANVAS_BG }}>
-        <AuthChrome />
         <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
           <ScrollView
             className="flex-1"
             contentContainerStyle={{
               flexGrow: 1,
+              justifyContent: 'space-between',
               paddingHorizontal: 20,
-              paddingTop: 24,
-              paddingBottom: 48,
-              gap: 28,
+              paddingTop: Math.max(insets.top + 32, 64),
+              paddingBottom: Math.max(insets.bottom + 24, 40),
+              gap: 32,
             }}
             keyboardShouldPersistTaps="handled">
-            <Animated.View
-              entering={FadeInDown.duration(360)}
-              className="gap-2">
-              <AppText
-                variant="hero"
-                className="text-[30px] leading-[36px] text-white">
-                Create your account
-              </AppText>
-              <AppText className="text-[15px] leading-[22px] text-text-muted">
-                Join ConnectX and start meeting founders, teammates, and startups.
-              </AppText>
-            </Animated.View>
+            <View className="gap-8">
+              <Animated.View
+                entering={FadeInDown.duration(360)}
+                className="gap-2">
+                <AppText
+                  variant="hero"
+                  className="text-[30px] leading-[36px] text-white">
+                  Create your account
+                </AppText>
+                <AppText className="text-[15px] leading-[22px] text-text-muted">
+                  Join ConnectX and start meeting founders, teammates, and startups.
+                </AppText>
+              </Animated.View>
 
-            <Animated.View
-              entering={FadeInUp.delay(80).duration(360)}
-              className="gap-4">
-              <DarkField
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={emailError}
-                icon="mail-outline"
-                keyboardType="email-address"
-                onChangeText={(value) => {
-                  setEmail(value);
-                  if (emailError) setEmailError(null);
-                }}
-                placeholder="you@company.com"
-                value={email}
-              />
-              <DarkField
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={passwordError}
-                icon="lock-closed-outline"
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (passwordError) setPasswordError(null);
-                }}
-                placeholder="Use at least 8 characters"
-                secureTextEntry={!showPassword}
-                trailing={
-                  <Pressable
-                    onPress={() => setShowPassword((current) => !current)}
-                    hitSlop={8}>
-                    <Ionicons
-                      color={TEXT_MUTED}
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={18}
-                    />
-                  </Pressable>
-                }
-                value={password}
-              />
-              <DarkField
-                autoCapitalize="none"
-                autoCorrect={false}
-                error={passwordConfirmationError}
-                icon="shield-checkmark-outline"
-                onChangeText={(value) => {
-                  setPasswordConfirmation(value);
-                  if (passwordConfirmationError) setPasswordConfirmationError(null);
-                }}
-                placeholder="Repeat your password"
-                secureTextEntry={!showConfirm}
-                trailing={
-                  <Pressable
-                    onPress={() => setShowConfirm((current) => !current)}
-                    hitSlop={8}>
-                    <Ionicons
-                      color={TEXT_MUTED}
-                      name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
-                      size={18}
-                    />
-                  </Pressable>
-                }
-                value={passwordConfirmation}
-              />
-            </Animated.View>
-
-            {statusMessage ? (
-              <AppText align="center" selectable tone="danger">
-                {statusMessage}
-              </AppText>
-            ) : null}
+              <Animated.View
+                entering={FadeInUp.delay(80).duration(360)}
+                className="gap-4">
+                <DarkField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  error={emailError}
+                  icon="mail-outline"
+                  keyboardType="email-address"
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  placeholder="you@company.com"
+                  value={email}
+                />
+                <DarkField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  error={passwordError}
+                  icon="lock-closed-outline"
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (passwordError) setPasswordError(null);
+                  }}
+                  placeholder="Use at least 8 characters"
+                  secureTextEntry={!showPassword}
+                  trailing={
+                    <Pressable
+                      onPress={() => setShowPassword((current) => !current)}
+                      hitSlop={8}>
+                      <Ionicons
+                        color={TEXT_MUTED}
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                      />
+                    </Pressable>
+                  }
+                  value={password}
+                />
+                <DarkField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  error={passwordConfirmationError}
+                  icon="shield-checkmark-outline"
+                  onChangeText={(value) => {
+                    setPasswordConfirmation(value);
+                    if (passwordConfirmationError) setPasswordConfirmationError(null);
+                  }}
+                  placeholder="Repeat your password"
+                  secureTextEntry={!showConfirm}
+                  trailing={
+                    <Pressable
+                      onPress={() => setShowConfirm((current) => !current)}
+                      hitSlop={8}>
+                      <Ionicons
+                        color={TEXT_MUTED}
+                        name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                      />
+                    </Pressable>
+                  }
+                  value={passwordConfirmation}
+                />
+              </Animated.View>
+            </View>
 
             <Animated.View
               entering={FadeIn.delay(160).duration(360)}
-              className="gap-3">
+              className="gap-4">
+              {statusMessage ? (
+                <AppText align="center" selectable tone="danger">
+                  {statusMessage}
+                </AppText>
+              ) : null}
+
               <PrimaryCta
                 disabled={isSubmitting}
                 label={isSubmitting ? 'Creating account...' : 'Create account'}
@@ -369,21 +338,21 @@ export function RegisterScreen() {
                 </AppText>
                 .
               </AppText>
-            </Animated.View>
 
-            <View className="flex-row items-center justify-center gap-2 pt-2">
-              <AppText className="text-[14px] text-text-muted">
-                Already have an account?
-              </AppText>
-              <Pressable onPress={() => router.replace('/login')}>
-                <AppText
-                  variant="bodyStrong"
-                  className="text-[14px]"
-                  style={{ color: ACCENT }}>
-                  Sign in
+              <View className="flex-row items-center justify-center gap-2">
+                <AppText className="text-[14px] text-text-muted">
+                  Already have an account?
                 </AppText>
-              </Pressable>
-            </View>
+                <Pressable onPress={() => router.replace('/login')}>
+                  <AppText
+                    variant="bodyStrong"
+                    className="text-[14px]"
+                    style={{ color: ACCENT }}>
+                    Sign in
+                  </AppText>
+                </Pressable>
+              </View>
+            </Animated.View>
           </ScrollView>
         </Pressable>
       </View>
