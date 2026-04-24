@@ -238,8 +238,17 @@ export function useOnboardingSession({
     try {
       const backResponse = await goBackOnboardingSession(sessionId, locale);
 
-      setCurrentStep(backResponse.previous_step);
-      setDraftAnswers(pickStepAnswers(backResponse.previous_step, allAnswers));
+      console.log('[onboarding_test] go back response', backResponse);
+
+      const previousStep = backResponse.previous_step ?? backResponse.current_step ?? null;
+
+      if (!previousStep) {
+        setStatusMessage('Unable to load the previous step right now.');
+        return;
+      }
+
+      setCurrentStep(previousStep);
+      setDraftAnswers(pickStepAnswers(previousStep, allAnswers));
       setFieldErrors({});
     } catch (error) {
       setStatusMessage(

@@ -1,4 +1,4 @@
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { AntDesign } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
@@ -18,15 +18,16 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth, getRouteForAuthPhase } from '@features/auth';
+import { getRouteForAuthPhase, useAuth } from '@features/auth';
 import { AppText } from '@shared/components';
 import { cn } from '@shared/utils/cn';
 
 import { useOnboardingSession } from '../hooks/use-onboarding-session';
 import {
-  validateStepAnswers,
   resolveDeviceOnboardingLocale,
+  validateStepAnswers,
 } from '../services/onboarding-session-service';
 import type {
   OnboardingAnswerValue,
@@ -44,7 +45,6 @@ const ACCENT = '#FF9A3E';
 const ACCENT_SOFT = '#2A2117';
 const BORDER_SOFT = '#2A2E38';
 const CANVAS_BG = '#212121';
-const HEADER_BG = '#232323';
 const MULTI_SELECT_DROPDOWN_STEP_IDS = new Set([
   'step_su_biz',
   'step_fdr_industry',
@@ -73,49 +73,6 @@ function getCompletionRoute(mode: OnboardingMode, redirectTo?: string) {
   }
 
   return mode === 'preview' ? ('/login' as const) : ('/(tabs)' as const);
-}
-
-function HeaderChrome() {
-  return (
-    <View
-      className="flex-row items-center gap-2 px-5 pt-16 pb-5"
-      style={{ backgroundColor: HEADER_BG }}>
-      <View
-        className="h-8 w-8 items-center justify-center overflow-hidden rounded-[9px] bg-white"
-        style={{ borderCurve: 'continuous' }}>
-        <Image
-          source={CONNECTX_LOGO}
-          style={{ width: 22, height: 22 }}
-          contentFit="contain"
-        />
-      </View>
-      <AppText variant="bodyStrong" className="text-white text-[13px]">
-        ConnectX
-      </AppText>
-      <View
-        className="rounded-full border px-2 py-[4px]"
-        style={{ borderColor: ACCENT }}>
-        <AppText
-          variant="label"
-          className="text-[9px]"
-          style={{ color: ACCENT, letterSpacing: 0.5 }}>
-          V1 FREE
-        </AppText>
-      </View>
-      <View className="flex-1" />
-      <View
-        className="flex-row items-center gap-1 rounded-full border px-2.5 py-[4px]"
-        style={{ borderColor: ACCENT }}>
-        <Ionicons color={ACCENT} name="diamond" size={11} />
-        <AppText
-          variant="bodyStrong"
-          className="text-[10px]"
-          style={{ color: ACCENT }}>
-          Premium
-        </AppText>
-      </View>
-    </View>
-  );
 }
 
 function ProgressSegment({ active, delay }: { active: boolean; delay: number }) {
@@ -271,6 +228,7 @@ function PrimaryCta({
 export function OnboardingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
+  const insets = useSafeAreaInsets();
   const mode: OnboardingMode = params.mode === 'preview' ? 'preview' : 'post_auth';
   const { authPhase, completeOnboarding, isHydrated, session } = useAuth();
   const locale = React.useMemo(
@@ -289,7 +247,7 @@ export function OnboardingScreen() {
     mode === 'preview' ||
     Boolean(
       session &&
-        (authPhase === 'pending_onboarding' || authPhase === 'authenticated')
+      (authPhase === 'pending_onboarding' || authPhase === 'authenticated')
     );
 
   const {
@@ -436,8 +394,9 @@ export function OnboardingScreen() {
       className="flex-1"
       style={{ backgroundColor: CANVAS_BG }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-1" style={{ backgroundColor: CANVAS_BG }}>
-        <HeaderChrome />
+      <View
+        className="flex-1"
+        style={{ backgroundColor: CANVAS_BG, paddingTop: insets.top }}>
         <ProgressHeader
           canGoBack={currentStep.can_go_back}
           current={currentStep.overall_progress.current}
@@ -446,7 +405,9 @@ export function OnboardingScreen() {
         />
 
         {isWelcomeStep ? (
-          <View className="flex-1 justify-between pb-10">
+          <View
+            className="flex-1 justify-between"
+            style={{ paddingBottom: Math.max(insets.bottom + 24, 40) }}>
             <WelcomeHero step={currentStep} />
             <View className="px-5">
               <PrimaryCta
@@ -510,8 +471,8 @@ export function OnboardingScreen() {
                     question={question}
                     variant={
                       currentStep &&
-                      MULTI_SELECT_DROPDOWN_STEP_IDS.has(currentStep.id) &&
-                      question.type === 'multi_select_chip'
+                        MULTI_SELECT_DROPDOWN_STEP_IDS.has(currentStep.id) &&
+                        question.type === 'multi_select_chip'
                         ? 'dropdown_multi_select'
                         : 'default'
                     }
@@ -528,14 +489,15 @@ export function OnboardingScreen() {
             </ScrollView>
 
             {isAutoAdvanceStep ? (
-              <View className="pb-8" />
+              <View style={{ paddingBottom: Math.max(insets.bottom + 16, 32) }} />
             ) : (
               <View
-                className="px-5 pt-4 pb-8"
+                className="px-5 pt-4"
                 style={{
                   backgroundColor: CANVAS_BG,
                   borderTopColor: BORDER_SOFT,
                   borderTopWidth: 1,
+                  paddingBottom: Math.max(insets.bottom + 16, 32),
                 }}>
                 <PrimaryCta
                   disabled={!canSubmit || isSubmitting || isGoingBack}

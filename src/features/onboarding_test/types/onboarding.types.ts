@@ -209,7 +209,8 @@ export type OnboardingSessionResponse = {
 };
 
 export type OnboardingBackResponse = {
-  previous_step: OnboardingStep;
+  current_step?: OnboardingStep | null;
+  previous_step?: OnboardingStep | null;
   progress?: {
     current: number;
     total: number;
