@@ -771,7 +771,8 @@ function MultiSelectDropdownQuestion({
               <ScrollView
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator>
+                showsVerticalScrollIndicator
+                style={{ maxHeight: 320 }}>
                 {question.options?.map((option) => {
                   const isSelected = currentValues.includes(option.value);
                   const isDisabled = !isSelected && atLimit;
@@ -915,7 +916,8 @@ function DropdownQuestion({
               <ScrollView
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator>
+                showsVerticalScrollIndicator
+                style={{ maxHeight: 280 }}>
                 {question.options?.map((option) => {
                   const isSelected = currentValue === option.value;
 
@@ -1047,7 +1049,8 @@ function SearchableDropdownQuestion({
               <ScrollView
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator>
+                showsVerticalScrollIndicator
+                style={{ maxHeight: 320 }}>
                 {groupOptions(filteredOptions).map(([groupName, options]) => (
                   <View key={groupName} className="gap-1 pb-2">
                     <AppText tone="muted" variant="label" className="px-3 pt-2 pb-1">
@@ -1507,7 +1510,8 @@ function DateDropdown({
             <ScrollView
               nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator>
+              showsVerticalScrollIndicator
+              style={{ maxHeight: 240 }}>
               {options.map((option) => {
                 const isSelected = option.value === selectedValue;
 

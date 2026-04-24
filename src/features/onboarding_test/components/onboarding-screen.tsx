@@ -432,7 +432,8 @@ export function OnboardingScreen() {
                 gap: 28,
               }}
               contentInsetAdjustmentBehavior="automatic"
-              keyboardShouldPersistTaps="handled">
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled>
               <Animated.View
                 key={`title-${currentStep.id}`}
                 entering={FadeInDown.duration(320)}
